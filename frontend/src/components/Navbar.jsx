@@ -17,14 +17,14 @@ const Navbar = () => {
                 {/* Navigation Links */}
                 <div className="flex items-center gap-1">
                     <button
-                        className="text-sm font-bold px-5 py-2 rounded-lg transition-all text-accent bg-[#76D2DB0D]"
+                        className="text-sm font-black px-5 py-2 rounded-lg transition-all text-white bg-black hover:bg-gray-800"
                     >
                         Dashboard
                     </button>
 
                     
                     {/* User Profile */}
-                    <div className="ml-6 w-10 h-10 rounded-full bg-[#ebfcfd] border border-accent flex items-center justify-center text-accent transition-all hover:bg-accent hover:text-white cursor-pointer shadow-sm">
+                    <div className="ml-6 w-10 h-10 rounded-full bg-white border-2 border-accent flex items-center justify-center text-accent transition-all hover:bg-black hover:text-white cursor-pointer shadow-sm">
                         <User className="w-5 h-5" />
                     </div>
                 </div>

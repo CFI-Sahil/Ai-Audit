@@ -17,7 +17,13 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
 
-    const [formData, setFormData] = useState({ name: '', age: '', location: '' });
+    const [formData, setFormData] = useState({ 
+        name: '', 
+        age: '', 
+        profession: '', 
+        education: '', 
+        district: ''
+    });
     const [file, setFile] = useState(null);
 
 
@@ -25,7 +31,13 @@ function App() {
 
 
     const clearForm = () => {
-        setFormData({ name: '', age: '', location: '' });
+        setFormData({ 
+            name: '', 
+            age: '', 
+            profession: '', 
+            education: '', 
+            district: ''
+        });
         setFile(null);
         setResult(null);
     };
@@ -38,6 +50,9 @@ function App() {
         const data = new FormData();
         data.append('name', formData.name);
         data.append('age', formData.age);
+        data.append('profession', formData.profession);
+        data.append('education', formData.education);
+        data.append('district', formData.district);
         data.append('audio', file);
 
         try {
@@ -48,7 +63,7 @@ function App() {
                     particleCount: 150,
                     spread: 70,
                     origin: { y: 0.6 },
-                    colors: ['#76D2DB', '#36064D']
+                    colors: ['#000000', '#808080', '#D1D5DB']
                 });
             }
 
@@ -86,8 +101,8 @@ function App() {
         <div className="min-h-screen flex flex-col">
             <Navbar />
 
-            <main className="max-w-[900px] mt-16 mx-auto px-6 text-center w-full grow">
-                <h1 className="text-5xl font-black text-text-dark mb-3 tracking-tighter">AI Survey Audit System</h1>
+            <main className="max-w-[900px] mt-24 mx-auto px-6 text-center w-full grow">
+                <h1 className="text-5xl font-black text-black mb-4 tracking-tighter uppercase">AI Survey Audit System</h1>
                 <p className="text-text-medium text-lg mb-14 max-w-[600px] mx-auto">
                     Submit survey details and audio recording for automated AI verification and sentiment analysis.
                 </p>
@@ -110,7 +125,14 @@ function App() {
                             clearForm={clearForm}
                         />
 
-                        <AuditResult result={result} formAge={formData.age} formName={formData.name} />
+                        <AuditResult 
+                            result={result} 
+                            formAge={formData.age} 
+                            formName={formData.name} 
+                            formProfession={formData.profession}
+                            formEducation={formData.education}
+                            formDistrict={formData.district}
+                        />
 
                         <FeatureHighlights />
                     </motion.div>

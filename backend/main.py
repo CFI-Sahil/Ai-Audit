@@ -32,6 +32,9 @@ def get_db():
 async def upload_survey(
     name: str = Form(...),
     age: int = Form(...),
+    profession: str = Form(...),
+    education: str = Form(...),
+    district: str = Form(...),
     audio: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -48,19 +51,24 @@ async def upload_survey(
     try:
         # 1. Transcribe audio
         try:
-            transcript = whisper_service.transcribe(temp_filename)
+            transcription_response = whisper_service.transcribe(temp_filename)
+            transcript = transcription_response["text"]
+            segments = transcription_response["segments"]
         except Exception as te:
             print(f"Transcription error: {te}")
-            # Generic message that won't trigger a false 'Match'
-            transcript = "AI Transcription failed (System FFmpeg missing). Please install FFmpeg to enable accurate age detection."
+            transcript = "AI Transcription failed. Please install FFmpeg."
+            segments = []
         
-        # 2. Audit logic (pass name for name verification)
-        audit_result = perform_audit(transcript, age, name)
+        # 2. Audit logic (pass segments for timestamps)
+        audit_result = perform_audit(transcript, age, name, profession, education, district, segments)
         
         # 3. Save to database
         db_survey = Survey(
             name=name,
             form_age=age,
+            form_profession=profession,
+            form_education=education,
+            form_district=district,
             transcript=transcript,
             detected_age=audit_result["detected_age"],
             detected_name=audit_result["detected_name"],
