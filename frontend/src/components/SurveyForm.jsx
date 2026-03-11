@@ -1,5 +1,7 @@
-import React from 'react';
-import { User, Calendar, MapPin, Upload, Cloud, Send, Briefcase, GraduationCap, Map, Users } from 'lucide-react';
+import { 
+    User, Calendar, MapPin, Upload, Cloud, Send, 
+    Briefcase, GraduationCap, Map, Users, Loader2, CheckCircle2 
+} from 'lucide-react';
 
 const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loading, clearForm }) => {
     return (
@@ -15,7 +17,10 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                 <form onSubmit={handleUpload}>
                     <div className="grid grid-cols-2 gap-8 mb-8">
                         <div>
-                            <label className="flex items-center gap-2 text-sm font-bold text-text-dark mb-2"><User className="text-accent w-4 h-4" /> Participant Name</label>
+                            <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
+                                <span className="flex items-center gap-2"><User className="text-accent w-4 h-4" /> Participant Name</span>
+                                {formData.name && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                            </label>
                             <input
                                 type="text"
                                 placeholder="e.g. John Doe"
@@ -26,7 +31,10 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                             />
                         </div>
                         <div>
-                            <label className="flex items-center gap-2 text-sm font-bold text-text-dark mb-2"><Calendar className="text-accent w-4 h-4" /> Age</label>
+                            <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
+                                <span className="flex items-center gap-2"><Calendar className="text-accent w-4 h-4" /> Age</span>
+                                {formData.age && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                            </label>
                             <input
                                 type="number"
                                 placeholder="Enter age"
@@ -38,7 +46,10 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                         </div>
 
                         <div>
-                            <label className="flex items-center gap-2 text-sm font-bold text-text-dark mb-2"><Briefcase className="text-accent w-4 h-4" /> Profession / Occupation</label>
+                            <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
+                                <span className="flex items-center gap-2"><Briefcase className="text-accent w-4 h-4" /> Profession / Occupation</span>
+                                {formData.profession && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                            </label>
                             <input
                                 type="text"
                                 placeholder="e.g. Businessman"
@@ -50,7 +61,10 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                         </div>
 
                         <div>
-                            <label className="flex items-center gap-2 text-sm font-bold text-text-dark mb-2"><GraduationCap className="text-accent w-4 h-4" /> Education Level</label>
+                            <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
+                                <span className="flex items-center gap-2"><GraduationCap className="text-accent w-4 h-4" /> Education Level</span>
+                                {formData.education && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                            </label>
                             <input
                                 type="text"
                                 placeholder="e.g. Graduate"
@@ -61,20 +75,40 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                             />
                         </div>
                         <div>
-                            <label className="flex items-center gap-2 text-sm font-bold text-text-dark mb-2"><Map className="text-accent w-4 h-4" /> District</label>
+                            <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
+                                <span className="flex items-center gap-2"><Map className="text-accent w-4 h-4" /> Location</span>
+                                {formData.location && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                            </label>
                             <input
                                 type="text"
                                 placeholder="e.g. Mumbai"
                                 className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
-                                value={formData.district}
-                                onChange={e => setFormData({ ...formData, district: e.target.value })}
+                                value={formData.location}
+                                onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
+                                <span className="flex items-center gap-2"><Users className="text-accent w-4 h-4" /> Mobile Number</span>
+                                {formData.mobile && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. 9876543210"
+                                className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
+                                value={formData.mobile}
+                                onChange={e => setFormData({ ...formData, mobile: e.target.value })}
                                 required
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="flex items-center gap-2 text-sm font-bold text-text-dark mb-2"><Upload className="text-accent w-4 h-4" /> Upload Survey Audio</label>
+                        <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
+                            <span className="flex items-center gap-2"><Upload className="text-accent w-4 h-4" /> Upload Survey Audio</span>
+                            {file && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                        </label>
                         <input
                             type="file"
                             id="audio-upload"
@@ -101,8 +135,13 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                             disabled={loading}
                             className="bg-accent text-white border-2 border-accent rounded-xl py-4 px-10 font-black text-lg flex items-center justify-center gap-3 cursor-pointer transition-all shadow-lg hover:bg-white hover:text-accent hover:-translate-y-0.5 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? 'Processing Audit...' : (
-                                <>Submit Survey for Audit <Send className="w-5 h-5 ml-1" /></>
+                            {loading ? (
+                                <div className="flex items-center gap-3">
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <span>Processing Audit...</span>
+                                </div>
+                            ) : (
+                                <>Submit Survey <Send className="w-5 h-5 ml-1" /></>
                             )}
                         </button>
                         <button type="button" onClick={clearForm} className="bg-white text-text-dark border-2 border-border-muted rounded-xl py-4 px-8 font-bold cursor-pointer transition-all hover:bg-gray-50">Clear</button>

@@ -22,13 +22,10 @@ function App() {
         age: '', 
         profession: '', 
         education: '', 
-        district: ''
+        location: '',
+        mobile: ''
     });
     const [file, setFile] = useState(null);
-
-
-
-
 
     const clearForm = () => {
         setFormData({ 
@@ -36,7 +33,8 @@ function App() {
             age: '', 
             profession: '', 
             education: '', 
-            district: ''
+            location: '',
+            mobile: ''
         });
         setFile(null);
         setResult(null);
@@ -52,7 +50,8 @@ function App() {
         data.append('age', formData.age);
         data.append('profession', formData.profession);
         data.append('education', formData.education);
-        data.append('district', formData.district);
+        data.append('location', formData.location);
+        data.append('mobile', formData.mobile);
         data.append('audio', file);
 
         try {
@@ -131,7 +130,9 @@ function App() {
                             formName={formData.name} 
                             formProfession={formData.profession}
                             formEducation={formData.education}
-                            formDistrict={formData.district}
+                            formLocation={formData.location}
+                            formMobile={formData.mobile}
+                            audioFile={file}
                         />
 
                         <FeatureHighlights />

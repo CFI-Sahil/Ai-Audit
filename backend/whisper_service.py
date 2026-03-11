@@ -12,22 +12,8 @@ class WhisperService:
         print(f"--- Phase 1: Loading '{model_size}' into memory ---")
         start_load = time.time()
         
-        # KEY CHANGE: Using Faster-Whisper's WhisperModel
-        # compute_type="float16" makes it 2x-4x faster on your GPU
-        # If no GPU is available, it will fall back to CPU
-        try:
-            self.model = WhisperModel(
-                model_size, 
-                device="cuda",      # Uses GPU
-                compute_type="float16" 
-            )
-        except Exception as e:
-            print(f"GPU loading failed, falling back to CPU: {e}")
-            self.model = WhisperModel(
-                model_size, 
-                device="cpu",      # Fallback to CPU
-                compute_type="int8" 
-            )
+        # Simple initialization
+        self.model = WhisperModel(model_size)
         
         end_load = time.time()
         print(f"Model loaded in {end_load - start_load:.2f} seconds.")
@@ -73,9 +59,20 @@ class WhisperService:
         
         end_transcribe = time.time()
         print(f"Translation finished in {end_transcribe - start_transcribe:.2f} seconds.")
+        
+        # LOGGING FOR DEBUGGING
+        print(f"--- Audio Analysis ---")
+        print(f"Detected Duration: {info.duration:.2f}s")
+        if processed_segments:
+            print(f"First Segment Start: {processed_segments[0]['start']:.2f}s")
+        
         return {
             "text": full_text.strip(),
-            "segments": processed_segments
+            "segments": processed_segments,
+            "info": {
+                "duration": info.duration,
+                "language": info.language
+            }
         }
 
 # Initialize the service

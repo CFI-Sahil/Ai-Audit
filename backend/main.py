@@ -34,7 +34,8 @@ async def upload_survey(
     age: int = Form(...),
     profession: str = Form(...),
     education: str = Form(...),
-    district: str = Form(...),
+    location: str = Form(...),
+    mobile: str = Form(...),
     audio: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -59,8 +60,8 @@ async def upload_survey(
             transcript = "AI Transcription failed. Please install FFmpeg."
             segments = []
         
-        # 2. Audit logic (pass segments for timestamps)
-        audit_result = perform_audit(transcript, age, name, profession, education, district, segments)
+        # 2. Audit logic
+        audit_result = perform_audit(transcript, age, name, profession, education, location, mobile, segments, temp_filename)
         
         # 3. Save to database
         db_survey = Survey(
@@ -68,11 +69,19 @@ async def upload_survey(
             form_age=age,
             form_profession=profession,
             form_education=education,
-            form_district=district,
+            form_location=location,
+            form_mobile=mobile,
             transcript=transcript,
-            detected_age=audit_result["detected_age"],
-            detected_name=audit_result["detected_name"],
-            result=audit_result["status"]
+            detected_age=audit_result["detected_values"]["age"],
+            detected_name=audit_result["detected_values"]["name"],
+            detected_profession=audit_result["detected_values"]["profession"],
+            detected_education=audit_result["detected_values"]["education"],
+            detected_location=audit_result["detected_values"]["location"],
+            detected_mobile=audit_result["detected_values"]["mobile"],
+            result=audit_result["status"],
+            emotion=audit_result["sentiment"]["emotion"],
+            meaning=audit_result["sentiment"]["meaning"],
+            interpretation=audit_result["sentiment"]["interpretation"]
         )
         db.add(db_survey)
         db.commit()
@@ -84,6 +93,7 @@ async def upload_survey(
             "audit_result": audit_result
         }
     except Exception as e:
+        print(f"Server Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         # Clean up temp file
