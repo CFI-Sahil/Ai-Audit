@@ -80,7 +80,8 @@ const AuditRow = ({ label, submitted, questionTime, detected, detectedTime, stat
 const ClipCard = ({ label, time, isAvailable = true, audioUrl }) => {
     const [isPlaying, setIsPlaying] = React.useState(false);
     const [currentTime, setCurrentTime] = React.useState(0);
-    const [volume, setVolume] = React.useState(1); // 1.0, 0.5, 0 (muted)
+    const [volume, setVolume] = React.useState(1); // 0 to 1
+    const [showVolumeSlider, setShowVolumeSlider] = React.useState(false);
     const [playbackRate, setPlaybackRate] = React.useState(1);
     const [showSpeedMenu, setShowSpeedMenu] = React.useState(false);
     const audioRef = React.useRef(null);
@@ -145,11 +146,11 @@ const ClipCard = ({ label, time, isAvailable = true, audioUrl }) => {
         if (audioRef.current) audioRef.current.volume = nextVolume;
     };
 
-    const changeSpeed = (speed, e) => {
+    const handleVolumeChange = (e) => {
         e.stopPropagation();
-        setPlaybackRate(speed);
-        if (audioRef.current) audioRef.current.playbackRate = speed;
-        setShowSpeedMenu(false);
+        const newVolume = parseFloat(e.target.value);
+        setVolume(newVolume);
+        if (audioRef.current) audioRef.current.volume = newVolume;
     };
 
     return (
@@ -188,18 +189,41 @@ const ClipCard = ({ label, time, isAvailable = true, audioUrl }) => {
                         />
                     </div>
 
-                    <div className="flex items-center gap-2 relative">
+                    <div 
+                        className="flex items-center gap-2 relative group-controls"
+                        onMouseEnter={() => setShowVolumeSlider(true)}
+                        onMouseLeave={() => setShowVolumeSlider(false)}
+                    >
                         {volume === 0 ? (
-                            <Activity className="w-3.5 h-3.5 text-red-500" onClick={toggleVolume} title="Muted" />
+                            <Activity className="w-3.5 h-3.5 text-red-500 cursor-pointer" onClick={(e) => { e.stopPropagation(); setVolume(1); if(audioRef.current) audioRef.current.volume = 1; }} title="Muted" />
                         ) : (
                             <Volume2 
-                                className={`w-3.5 h-3.5 text-black transition-opacity ${volume === 0.5 ? 'opacity-40' : 'opacity-100'}`} 
-                                onClick={toggleVolume} 
-                                title={volume === 1 ? "High Volume" : "Low Volume"}
+                                className={`w-3.5 h-3.5 text-black cursor-pointer transition-opacity ${volume < 0.5 ? 'opacity-40' : 'opacity-100'}`} 
+                                onClick={(e) => { e.stopPropagation(); setVolume(0); if(audioRef.current) audioRef.current.volume = 0; }}
+                                title="Click to Mute"
                             />
                         )}
+
+                        {showVolumeSlider && (
+                            <motion.div 
+                                initial={{ width: 0, opacity: 0 }}
+                                animate={{ width: 60, opacity: 1 }}
+                                className="overflow-hidden flex items-center h-4"
+                            >
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.1" 
+                                    value={volume} 
+                                    onChange={handleVolumeChange}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-12 h-1 accent-black cursor-pointer"
+                                />
+                            </motion.div>
+                        )}
                         
-                        <div className="relative">
+                        <div className="relative ml-1">
                             <MoreVertical 
                                 className="w-3.5 h-3.5 text-gray-400 cursor-pointer hover:text-black" 
                                 onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(!showSpeedMenu); }}
