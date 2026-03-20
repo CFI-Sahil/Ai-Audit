@@ -4,6 +4,10 @@ import math
 import asyncio
 from groq import AsyncGroq
 from pydub import AudioSegment
+from dotenv import load_dotenv
+
+# Load .env file if it exists
+load_dotenv()
 
 # API Key should be set as an environment variable GROQ_API_KEY
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
