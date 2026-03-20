@@ -89,7 +89,8 @@ async def upload_survey(
             result=audit_result["status"],
             emotion=audit_result["sentiment"]["emotion"],
             meaning=audit_result["sentiment"]["meaning"],
-            interpretation=audit_result["sentiment"]["interpretation"]
+            interpretation=audit_result["sentiment"]["interpretation"],
+            full_result_json=json.dumps(audit_result)
         )
         db.add(db_survey)
         db.commit()
@@ -127,6 +128,38 @@ def get_surveys(db: Session = Depends(get_db)):
         # Generate audio URL
         if s_dict.get("audio_path"):
             s_dict["audio_url"] = f"http://localhost:8000/audio/{os.path.basename(s_dict['audio_path'])}"
+        
+        # Consistent mapping for frontend
+        if s_dict.get("full_result_json"):
+            try:
+                s_dict["audit_result"] = json.loads(s_dict["full_result_json"])
+                # Ensure audio_url is in the nested audit_result for ClipCard
+                s_dict["audit_result"]["audio_url"] = s_dict["audio_url"]
+            except:
+                s_dict["audit_result"] = None
+        else:
+            # Fallback for old records
+            s_dict["audit_result"] = {
+                "status": s_dict.get("result"),
+                "detected_values": {
+                    "age": s_dict.get("detected_age"),
+                    "name": s_dict.get("detected_name"),
+                    "profession": s_dict.get("detected_profession"),
+                    "education": s_dict.get("detected_education"),
+                    "location": s_dict.get("detected_location"),
+                    "mobile": s_dict.get("detected_mobile")
+                },
+                "timestamps": {
+                    "questions": s_dict.get("question_timestamps") or {},
+                    "detected": {}
+                },
+                "sentiment": {
+                    "emotion": s_dict.get("emotion"),
+                    "meaning": s_dict.get("meaning"),
+                    "interpretation": s_dict.get("interpretation")
+                },
+                "audio_url": s_dict.get("audio_url")
+            }
         
         results.append(s_dict)
     return results

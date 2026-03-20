@@ -33,6 +33,7 @@ class Survey(Base):
     emotion = Column(String, nullable=True)
     meaning = Column(String, nullable=True)
     interpretation = Column(String, nullable=True)
+    full_result_json = Column(String, nullable=True) # Full audit result as JSON
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
 Base.metadata.create_all(bind=engine)
