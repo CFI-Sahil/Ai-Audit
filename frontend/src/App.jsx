@@ -17,22 +17,36 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
 
-    const [formData, setFormData] = useState({ 
-        name: '', 
-        age: '', 
-        profession: '', 
-        education: '', 
+    const [formData, setFormData] = useState({
+        name: '',
+        age: '',
+        profession: '',
+        education: '',
         location: '',
         mobile: ''
     });
     const [file, setFile] = useState(null);
+    const [history, setHistory] = useState([]);
+
+    const fetchHistory = async () => {
+        try {
+            const res = await axios.get(`${API_BASE}/surveys`);
+            setHistory(res.data);
+        } catch (err) {
+            console.error("Error fetching history", err);
+        }
+    };
+
+    useEffect(() => {
+        fetchHistory();
+    }, []);
 
     const clearForm = () => {
-        setFormData({ 
-            name: '', 
-            age: '', 
-            profession: '', 
-            education: '', 
+        setFormData({
+            name: '',
+            age: '',
+            profession: '',
+            education: '',
             location: '',
             mobile: ''
         });
@@ -124,10 +138,10 @@ function App() {
                             clearForm={clearForm}
                         />
 
-                        <AuditResult 
-                            result={result} 
-                            formAge={formData.age} 
-                            formName={formData.name} 
+                        <AuditResult
+                            result={result}
+                            formAge={formData.age}
+                            formName={formData.name}
                             formProfession={formData.profession}
                             formEducation={formData.education}
                             formLocation={formData.location}

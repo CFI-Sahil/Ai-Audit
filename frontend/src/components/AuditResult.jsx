@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-    CheckCircle, AlertCircle, HelpCircle, Play, Volume2, 
+import {
+    CheckCircle, AlertCircle, HelpCircle, Play, Volume2,
     MessageSquare, Activity, ShieldCheck, Quote, MoreVertical, Pause
 } from 'lucide-react';
 
@@ -11,9 +11,9 @@ const StatusBadge = ({ status, variant = 'large' }) => {
         Mismatch: 'bg-red-500 text-white border-red-500',
         Inconclusive: 'bg-gray-400 text-white border-gray-400',
     };
-    
-    const sizeClasses = variant === 'large' 
-        ? 'px-4 py-1 text-[11px] font-black tracking-[0.1em]' 
+
+    const sizeClasses = variant === 'large'
+        ? 'px-4 py-1 text-[11px] font-black tracking-[0.1em]'
         : 'px-3 py-0.5 text-[9px] font-black tracking-[0.05em]';
 
     return (
@@ -47,15 +47,15 @@ const AuditRow = ({ label, submitted, questionTime, detected, detectedTime, stat
             <div>
                 <p className="text-[9px] font-black text-gray-400 uppercase mb-1 tracking-widest">Question Asked</p>
                 <div className="flex items-center gap-2">
-                    <span 
+                    <span
                         className="bg-black text-white text-[11px] font-black px-2 py-0.5 rounded flex items-center gap-1.5 cursor-pointer hover:bg-gray-800 transition-colors"
                         onClick={() => questionTime !== 'Not Detected' && onPlay(questionTime)}
                     >
                         {questionTime || 'Not Detected'}
                     </span>
                     {questionTime !== 'Not Detected' && (
-                        <Play 
-                            className="w-3 h-3 text-black fill-current cursor-pointer hover:scale-110 transition-transform" 
+                        <Play
+                            className="w-3 h-3 text-black fill-current cursor-pointer hover:scale-110 transition-transform"
                             onClick={() => onPlay(questionTime)}
                         />
                     )}
@@ -84,10 +84,10 @@ const ClipCard = ({ label, time, isAvailable = true, onPlay }) => {
     const handlePlay = (e) => {
         e.stopPropagation();
         if (!isAvailable || time === 'Not Detected' || isPlaying) return;
-        
+
         setIsPlaying(true);
         onPlay(time);
-        
+
         const startTime = Date.now();
         const interval = setInterval(() => {
             const elapsed = (Date.now() - startTime) / 1000;
@@ -102,12 +102,11 @@ const ClipCard = ({ label, time, isAvailable = true, onPlay }) => {
     };
 
     return (
-        <div 
-            className={`rounded-2xl p-4 border transition-all duration-300 ${
-                isAvailable 
-                ? 'bg-white border-gray-100 hover:border-black' 
-                : 'bg-gray-50/50 border-gray-100 opacity-60'
-            }`}
+        <div
+            className={`rounded-2xl p-4 border transition-all duration-300 ${isAvailable
+                    ? 'bg-white border-gray-100 hover:border-black'
+                    : 'bg-gray-50/50 border-gray-100 opacity-60'
+                }`}
         >
             <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-2">
@@ -118,7 +117,7 @@ const ClipCard = ({ label, time, isAvailable = true, onPlay }) => {
                     Ref @{time || 'None'}
                 </span>
             </div>
-            
+
             {isAvailable ? (
                 <div className="bg-gray-50 rounded-full py-1.5 px-4 flex items-center gap-4 w-full group cursor-pointer" onClick={handlePlay}>
                     {isPlaying ? (
@@ -126,14 +125,14 @@ const ClipCard = ({ label, time, isAvailable = true, onPlay }) => {
                     ) : (
                         <Play className="w-3.5 h-3.5 text-black fill-current" />
                     )}
-                    
+
                     <span className="text-[11px] font-bold text-gray-600 tabular-nums min-w-[65px]">
                         0:{currentTime < 10 ? `0${Math.floor(currentTime)}` : Math.floor(currentTime)} / 0:02
                     </span>
 
                     <div className="flex-1 h-1 bg-gray-300 rounded-full relative">
-                        <div 
-                            className="absolute left-0 top-0 bottom-0 bg-black rounded-full" 
+                        <div
+                            className="absolute left-0 top-0 bottom-0 bg-black rounded-full"
                             style={{ width: `${(currentTime / 2) * 100}%` }}
                         />
                     </div>
@@ -158,8 +157,11 @@ const AuditResult = ({ result, formAge, formName, formProfession, formEducation,
             const url = URL.createObjectURL(audioFile);
             setAudioUrl(url);
             return () => URL.revokeObjectURL(url);
+        } else if (result?.audit_result?.audio_url) {
+            // Fallback to backend audio URL if local file is missing
+            setAudioUrl(result.audit_result.audio_url);
         }
-    }, [audioFile]);
+    }, [audioFile, result]);
 
     if (!result) return null;
 
@@ -168,7 +170,7 @@ const AuditResult = ({ result, formAge, formName, formProfession, formEducation,
 
     const playSnippet = (timeStr) => {
         if (!audioUrl || timeStr === "Not Detected") return;
-        
+
         // Convert H:M:S string to seconds
         const parts = timeStr.split(':').map(Number);
         let seconds = 0;
@@ -217,57 +219,57 @@ const AuditResult = ({ result, formAge, formName, formProfession, formEducation,
 
                 {/* AUDIT BODY */}
                 <div className="px-10 py-4">
-                    <AuditRow 
-                        label="Name" 
-                        submitted={formName} 
-                        questionTime={timestamps.questions.name} 
-                        detected={detected_values.name} 
-                        detectedTime={timestamps.detected.name} 
+                    <AuditRow
+                        label="Name"
+                        submitted={formName}
+                        questionTime={timestamps.questions.name}
+                        detected={detected_values.name}
+                        detectedTime={timestamps.detected.name}
                         status={statuses.name}
                         onPlay={playSnippet}
                     />
-                    <AuditRow 
-                        label="Age" 
-                        submitted={formAge} 
-                        questionTime={timestamps.questions.age} 
-                        detected={detected_values.age} 
-                        detectedTime={timestamps.detected.age} 
+                    <AuditRow
+                        label="Age"
+                        submitted={formAge}
+                        questionTime={timestamps.questions.age}
+                        detected={detected_values.age}
+                        detectedTime={timestamps.detected.age}
                         status={statuses.age}
                         onPlay={playSnippet}
                     />
-                    <AuditRow 
-                        label="Profession" 
-                        submitted={formProfession} 
-                        questionTime={timestamps.questions.profession} 
-                        detected={detected_values.profession} 
-                        detectedTime={timestamps.detected.profession} 
+                    <AuditRow
+                        label="Profession"
+                        submitted={formProfession}
+                        questionTime={timestamps.questions.profession}
+                        detected={detected_values.profession}
+                        detectedTime={timestamps.detected.profession}
                         status={statuses.profession}
                         onPlay={playSnippet}
                     />
-                    <AuditRow 
-                        label="Education" 
-                        submitted={formEducation} 
-                        questionTime={timestamps.questions.education} 
-                        detected={detected_values.education} 
-                        detectedTime={timestamps.detected.education} 
+                    <AuditRow
+                        label="Education"
+                        submitted={formEducation}
+                        questionTime={timestamps.questions.education}
+                        detected={detected_values.education}
+                        detectedTime={timestamps.detected.education}
                         status={statuses.education}
                         onPlay={playSnippet}
                     />
-                    <AuditRow 
-                        label="Location" 
-                        submitted={formLocation} 
-                        questionTime={timestamps.questions.location} 
-                        detected={detected_values.location} 
-                        detectedTime={timestamps.detected.location} 
+                    <AuditRow
+                        label="Location"
+                        submitted={formLocation}
+                        questionTime={timestamps.questions.location}
+                        detected={detected_values.location}
+                        detectedTime={timestamps.detected.location}
                         status={statuses.location}
                         onPlay={playSnippet}
                     />
-                    <AuditRow 
-                        label="Mobile" 
-                        submitted={formMobile} 
-                        questionTime={timestamps.questions.mobile} 
-                        detected={detected_values.mobile} 
-                        detectedTime={timestamps.detected.mobile} 
+                    <AuditRow
+                        label="Mobile"
+                        submitted={formMobile}
+                        questionTime={timestamps.questions.mobile}
+                        detected={detected_values.mobile}
+                        detectedTime={timestamps.detected.mobile}
                         status={statuses.mobile}
                         onPlay={playSnippet}
                     />
@@ -293,13 +295,13 @@ const AuditResult = ({ result, formAge, formName, formProfession, formEducation,
                                 <p className="text-sm font-black text-black uppercase tracking-tight">Full Recording</p>
                             </div>
                         </div>
-                        
+
                         {/* FUNCTIONAL FULL AUDIO PLAYER */}
                         {audioUrl ? (
                             <div className="flex-1 ml-16">
-                                <audio 
-                                    src={audioUrl} 
-                                    controls 
+                                <audio
+                                    src={audioUrl}
+                                    controls
                                     className="w-full h-10 accent-black filter grayscale opacity-80 hover:opacity-100 transition-opacity"
                                 />
                             </div>

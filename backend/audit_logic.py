@@ -40,15 +40,25 @@ def extract_name(text: str):
     """Extract name from translated speech. Handles 'My name is X' or 'This is X'."""
     patterns = [
         r'(?:my name is|name\'s|name is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
-        r'(?:i am|i\'m|this is|call me)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
+        r'(?:i am|i\'m|this is|call me|myself)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)',
         r'(?:my name is|name is)\s+([A-Za-z]+(?:\s+[A-Za-z]+)?)',
     ]
+    
+    # Noise words that are common in administrative contexts but NOT names
+    noise_words = [
+        "panchayat", "village", "district", "block", "tehsil", "mandal", 
+        "state", "india", "working", "from", "living", "staying", "office",
+        "survey", "audit", "form", "data", "report"
+    ]
+    
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            # Avoid matching common words that might follow "i am"
             val = match.group(1).strip()
-            if val.lower() in ["a", "the", "in", "from", "at", "working"]:
+            # Avoid matching common words or noise words
+            if val.lower() in ["a", "the", "in", "from", "at", "working", "me", "this"]:
+                continue
+            if any(nw in val.lower() for nw in noise_words):
                 continue
             return val.title()
     return None
@@ -178,16 +188,15 @@ def generic_match(form_val: str, detected_text: str) -> bool:
 
 def extract_mobile(text: str):
     """Extract 10-digit mobile number from transcript."""
-    # Match strings of 10 digits
-    match = re.search(r'\b(\d{10})\b', text)
+    # Stricter 10-digit check: Must start with 7, 8, or 9 (Indian standard)
+    pattern = r'\b([789]\d{9})\b'
+    match = re.search(pattern, text)
     if match:
         return match.group(1)
     
-    # Try to match space-separated or comma-separated numbers
-    # e.g. "9 8 7 6 5 4 3 2 1 0" or "98, 76..."
+    # Try cleaned text but still enforce starting digit and length
     clean_text = re.sub(r'[^0-9]', '', text)
-    # Check if there's a 10-digit sequence anywhere in the digits
-    match = re.search(r'(\d{10})', clean_text)
+    match = re.search(r'([789]\d{9})', clean_text)
     if match:
         return match.group(1)
     return None
@@ -267,20 +276,45 @@ def analyze_sentiment(text: str, audio_path: Optional[str] = None):
 
 def find_question_timestamp(transcript: str, field: str, segments: List[Dict]):
     """Find the timestamp where the surveyor likely asked the question."""
+    # Each field has a list of regex patterns or keywords to look for
     questions = {
-        "name": ["what is your name", "your name", "name please"],
-        "age": ["what is your age", "how old are you", "what age"],
-        "profession": ["what is your profession", "what do you do", "your work", "occupation"],
-        "education": ["what is your education", "how much have you studied", "education level", "qualification"],
-        "location": ["where do you live", "where are you from", "your location", "which district", "which city"],
-        "mobile": ["mobile number", "contact number", "phone number", "your number"]
+        "name": [r"what(?:'s| is) your name", r"your name", r"name please", r"apka naam", r"appka nam", r"naam bataiye"],
+        "age": [r"what(?:'s| is) your age", r"how old are you", r"your age", r"umr", r"umar", r"kitni umar", r"kitne saal"],
+        "profession": [r"what(?:'s| is) your profession", r"what do you do", r"your work", r"your job", r"occupation", r"pesha", r"kaam", r"kya karte", r"business"],
+        "education": [r"what(?:'s| is) your education", r"how much have you studied", r"education level", r"qualification", r"padhai", r"shiksha", r"kitna padhe"],
+        "location": [r"where do you (?:live|stay)", r"where are you from", r"your location", r"which district", r"which city", r"kahan rehte", r"kahan se", r"ghar kahan"],
+        "mobile": [r"mobile number", r"contact number", r"phone number", r"your number", r"mobile num", r"phone num", r"digit number"]
     }
     
-    field_keywords = questions.get(field.lower(), [])
+    field_patterns = questions.get(field.lower(), [])
+    
+    # 1. Search in segments for precise timestamp (Full Phrase/Regex)
     for seg in segments:
         seg_text = seg["text"].lower()
-        if any(kw in seg_text for kw in field_keywords):
-            return format_seconds(seg["start"])
+        for pattern in field_patterns:
+            if re.search(pattern, seg_text, re.IGNORECASE):
+                return format_seconds(seg["start"])
+                
+    # 2. Aggressive Fallback: Search for significant keywords in segments
+    # Useful if the AI splits "What is" and "your name" into different segments
+    # We look for the most unique word in each field's questions
+    unique_keywords = {
+        "name": ["name", "naam"],
+        "age": ["age", "old", "umr", "umar"],
+        "profession": ["profession", "work", "job", "occupation", "kaam"],
+        "education": ["education", "studied", "qualification", "padhai"],
+        "location": ["live", "stay", "from", "location", "district", "city", "rehte"],
+        "mobile": ["mobile", "contact", "phone", "number"]
+    }
+    
+    keywords = unique_keywords.get(field.lower(), [])
+    for seg in segments:
+        seg_text = seg["text"].lower()
+        if any(kw in seg_text for kw in keywords):
+            # Only return if it looks like a question (e.g. "what", "how", "where", or Ends with ?)
+            if any(q in seg_text for q in ["what", "how", "where", "who", "which", "kahan", "kaun", "?"]):
+                return format_seconds(seg["start"])
+            
     return "Not Detected"
 
 def perform_audit(
@@ -294,12 +328,40 @@ def perform_audit(
     segments: Optional[List[Dict[str, Any]]] = None,
     audio_path: Optional[str] = None
 ):
+    # 0. Initialize Timestamps
+    question_timestamps: Dict[str, str] = {
+        "age": "Not Detected", "name": "Not Detected", "profession": "Not Detected", 
+        "education": "Not Detected", "location": "Not Detected", "mobile": "Not Detected"
+    }
+    
+    # 1. Calculate Question Timestamps FIRST to gate detection
+    if segments:
+        for field in question_timestamps.keys():
+            question_timestamps[field] = find_question_timestamp(transcript, field, segments)
+            
+    # 2. Extract Values (with hallucination prevention for Name & Mobile)
     detected_age = extract_age(transcript)
-    detected_name = extract_name(transcript)
+    
+    # Only detect name/mobile if question was asked OR if it's a very confident match with form
+    # This prevents random nouns/numbers from being attributed wrongly
+    
+    # NAME: Only detect if name question asked or extremely confident match
+    potential_name = extract_name(transcript)
+    if question_timestamps["name"] != "Not Detected" or (potential_name and names_match(form_name, potential_name)):
+        detected_name = potential_name
+    else:
+        detected_name = None
+        
     detected_profession = extract_profession(transcript, form_profession)
     detected_education = extract_education(transcript)
-    detected_location = extract_district(transcript) # Using district logic for location
-    detected_mobile = extract_mobile(transcript)
+    detected_location = extract_district(transcript)
+    
+    # MOBILE: Only detect if mobile question asked or extremely confident match
+    potential_mobile = extract_mobile(transcript)
+    if question_timestamps["mobile"] != "Not Detected" or (potential_mobile and str(form_mobile) == str(potential_mobile)):
+        detected_mobile = potential_mobile
+    else:
+        detected_mobile = None
     
     # Sentiment
     sentiment = analyze_sentiment(transcript, audio_path)
@@ -341,10 +403,6 @@ def perform_audit(
     detected_timestamps: Dict[str, Optional[str]] = {
         "age": None, "name": None, "profession": None, "education": None, "location": None, "mobile": None
     }
-    question_timestamps: Dict[str, str] = {
-        "age": "Not Detected", "name": "Not Detected", "profession": "Not Detected", 
-        "education": "Not Detected", "location": "Not Detected", "mobile": "Not Detected"
-    }
 
     if segments:
         def find_best_timestamp(target_val: Optional[object], segments: List[Dict]):
@@ -362,16 +420,13 @@ def perform_audit(
                     return format_seconds(seg["start"])
             return None
 
+        # Detected Value Timestamps
         detected_timestamps["age"] = find_best_timestamp(detected_age, segments)
         detected_timestamps["name"] = find_best_timestamp(detected_name, segments)
         detected_timestamps["profession"] = find_best_timestamp(detected_profession, segments)
         detected_timestamps["education"] = find_best_timestamp(detected_education, segments)
         detected_timestamps["location"] = find_best_timestamp(detected_location, segments)
         detected_timestamps["mobile"] = find_best_timestamp(detected_mobile, segments)
-        
-        # Question Asked Timestamps
-        for field in question_timestamps.keys():
-            question_timestamps[field] = find_question_timestamp(transcript, field, segments)
 
     # Dynamic status calculation with Inconclusive fallback
     final_statuses = {
