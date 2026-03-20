@@ -27,6 +27,8 @@ class Survey(Base):
     detected_education = Column(String, nullable=True)
     detected_location = Column(String, nullable=True)
     detected_mobile = Column(String, nullable=True)
+    question_timestamps = Column(String, nullable=True) # JSON string
+    audio_path = Column(String, nullable=True)
     result = Column(String)
     emotion = Column(String, nullable=True)
     meaning = Column(String, nullable=True)

@@ -4,6 +4,32 @@ import {
 } from 'lucide-react';
 
 const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loading, clearForm }) => {
+    
+    // Validation Logic
+    const validateName = (name) => name.trim().length >= 2;
+    const validateAge = (age) => {
+        const val = age.toString();
+        return val.length >= 2 && val.length <= 3 && !isNaN(val);
+    };
+    const validateProfession = (prof) => prof.trim().length >= 4;
+    const validateEducation = (edu) => edu.trim().length >= 2;
+    const validateLocation = (loc) => loc.trim().length >= 2;
+    const validateMobile = (mob) => {
+        const val = mob.toString().replace(/\s/g, '');
+        // User rule: starts with 7 is verified, 1-6 is invalid. 
+        // We'll allow 7, 8, 9 as they are typical Indian mobile starts.
+        return val.length === 10 && /^[789]/.test(val);
+    };
+
+    const isFormValid = 
+        validateName(formData.name) && 
+        validateAge(formData.age) && 
+        validateProfession(formData.profession) && 
+        validateEducation(formData.education) && 
+        validateLocation(formData.location) && 
+        validateMobile(formData.mobile) && 
+        file;
+
     return (
         <div className="bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.06)] overflow-hidden text-left mb-8 border border-border-muted">
             <div className="bg-accent text-white py-7 px-10 flex items-center gap-5">
@@ -14,12 +40,12 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
             </div>
 
             <div className="p-10">
-                <form onSubmit={handleUpload}>
+                <form onSubmit={(e) => isFormValid ? handleUpload(e) : e.preventDefault()}>
                     <div className="grid grid-cols-2 gap-8 mb-8">
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
                                 <span className="flex items-center gap-2"><User className="text-accent w-4 h-4" /> Participant Name</span>
-                                {formData.name && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                                {validateName(formData.name) && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
                             </label>
                             <input
                                 type="text"
@@ -33,14 +59,18 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
                                 <span className="flex items-center gap-2"><Calendar className="text-accent w-4 h-4" /> Age</span>
-                                {formData.age && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                                {validateAge(formData.age) && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
                             </label>
                             <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 placeholder="Enter age"
                                 className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
                                 value={formData.age}
-                                onChange={e => setFormData({ ...formData, age: e.target.value })}
+                                onChange={e => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    setFormData({ ...formData, age: val });
+                                }}
                                 required
                             />
                         </div>
@@ -48,7 +78,7 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
                                 <span className="flex items-center gap-2"><Briefcase className="text-accent w-4 h-4" /> Profession / Occupation</span>
-                                {formData.profession && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                                {validateProfession(formData.profession) && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
                             </label>
                             <input
                                 type="text"
@@ -63,7 +93,7 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
                                 <span className="flex items-center gap-2"><GraduationCap className="text-accent w-4 h-4" /> Education Level</span>
-                                {formData.education && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                                {validateEducation(formData.education) && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
                             </label>
                             <input
                                 type="text"
@@ -77,7 +107,7 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
                                 <span className="flex items-center gap-2"><Map className="text-accent w-4 h-4" /> Location</span>
-                                {formData.location && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                                {validateLocation(formData.location) && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
                             </label>
                             <input
                                 type="text"
@@ -91,15 +121,20 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
                                 <span className="flex items-center gap-2"><Users className="text-accent w-4 h-4" /> Mobile Number</span>
-                                {formData.mobile && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
+                                {validateMobile(formData.mobile) && <CheckCircle2 className="w-4 h-4 text-green-500 animate-in fade-in zoom-in" />}
                             </label>
                             <input
                                 type="text"
+                                inputMode="numeric"
                                 placeholder="e.g. 9876543210"
                                 className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
                                 value={formData.mobile}
-                                onChange={e => setFormData({ ...formData, mobile: e.target.value })}
+                                onChange={e => {
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                    setFormData({ ...formData, mobile: val });
+                                }}
                                 required
+                                maxLength={10}
                             />
                         </div>
                     </div>
@@ -132,7 +167,7 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                     <div className="mt-10 flex gap-4">
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || !isFormValid}
                             className="bg-accent text-white border-2 border-accent rounded-xl py-4 px-10 font-black text-lg flex items-center justify-center gap-3 cursor-pointer transition-all shadow-lg hover:bg-white hover:text-accent hover:-translate-y-0.5 flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? (

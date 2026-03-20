@@ -1,15 +1,21 @@
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import shutil
 import os
 import uuid
+import json
 
 from database import SessionLocal, Survey
 from whisper_service import whisper_service
 from audit_logic import perform_audit
 
 app = FastAPI()
+
+# Create directories
+os.makedirs("saved_audio", exist_ok=True)
+os.makedirs("temp_audio", exist_ok=True)
 
 # Enable CORS for frontend
 app.add_middleware(
@@ -19,6 +25,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for audio
+app.mount("/audio", StaticFiles(directory="saved_audio"), name="audio")
 
 # Dependency to get DB session
 def get_db():
@@ -39,29 +48,26 @@ async def upload_survey(
     audio: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    # Create temp directory if not exists
-    os.makedirs("temp_audio", exist_ok=True)
-    
-    # Save audio file
+    # Save audio file permanently
     file_extension = audio.filename.split(".")[-1]
-    temp_filename = f"temp_audio/{uuid.uuid4()}.{file_extension}"
+    saved_filename = f"saved_audio/{uuid.uuid4()}.{file_extension}"
     
-    with open(temp_filename, "wb") as buffer:
+    with open(saved_filename, "wb") as buffer:
         shutil.copyfileobj(audio.file, buffer)
     
     try:
         # 1. Transcribe audio
         try:
-            transcription_response = whisper_service.transcribe(temp_filename)
+            transcription_response = await whisper_service.transcribe(saved_filename)
             transcript = transcription_response["text"]
             segments = transcription_response["segments"]
         except Exception as te:
             print(f"Transcription error: {te}")
-            transcript = "AI Transcription failed. Please install FFmpeg."
+            transcript = "AI Transcription failed."
             segments = []
         
         # 2. Audit logic
-        audit_result = perform_audit(transcript, age, name, profession, education, location, mobile, segments, temp_filename)
+        audit_result = perform_audit(transcript, age, name, profession, education, location, mobile, segments, saved_filename)
         
         # 3. Save to database
         db_survey = Survey(
@@ -78,6 +84,8 @@ async def upload_survey(
             detected_education=audit_result["detected_values"]["education"],
             detected_location=audit_result["detected_values"]["location"],
             detected_mobile=audit_result["detected_values"]["mobile"],
+            question_timestamps=json.dumps(audit_result["timestamps"]["questions"]),
+            audio_path=saved_filename,
             result=audit_result["status"],
             emotion=audit_result["sentiment"]["emotion"],
             meaning=audit_result["sentiment"]["meaning"],
@@ -87,6 +95,9 @@ async def upload_survey(
         db.commit()
         db.refresh(db_survey)
         
+        # Return result with web-accessible audio URL
+        audit_result["audio_url"] = f"http://localhost:8000/audio/{os.path.basename(saved_filename)}"
+        
         return {
             "id": db_survey.id,
             "transcript": transcript,
@@ -94,31 +105,54 @@ async def upload_survey(
         }
     except Exception as e:
         print(f"Server Error: {e}")
+        if os.path.exists(saved_filename):
+            os.remove(saved_filename)
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # Clean up temp file
-        if os.path.exists(temp_filename):
-            os.remove(temp_filename)
 
 @app.get("/surveys")
 def get_surveys(db: Session = Depends(get_db)):
-    return db.query(Survey).order_by(Survey.timestamp.desc()).all()
+    surveys = db.query(Survey).order_by(Survey.timestamp.desc()).all()
+    results = []
+    for s in surveys:
+        # Convert to dict and add web-accessible fields
+        s_dict = {c.name: getattr(s, c.name) for c in s.__table__.columns}
+        
+        # Parse timestamps back to dict for frontend
+        if s_dict.get("question_timestamps"):
+            try:
+                s_dict["question_timestamps"] = json.loads(s_dict["question_timestamps"])
+            except:
+                s_dict["question_timestamps"] = {}
+        
+        # Generate audio URL
+        if s_dict.get("audio_path"):
+            s_dict["audio_url"] = f"http://localhost:8000/audio/{os.path.basename(s_dict['audio_path'])}"
+        
+        results.append(s_dict)
+    return results
 
 @app.delete("/surveys/{survey_id}")
 def delete_survey(survey_id: int, db: Session = Depends(get_db)):
-    print(f"Incoming delete request for ID: {survey_id}")
     db_survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not db_survey:
-        print(f"Survey with ID {survey_id} not found")
         raise HTTPException(status_code=404, detail="Survey not found")
+    
+    if db_survey.audio_path and os.path.exists(db_survey.audio_path):
+        try: os.remove(db_survey.audio_path)
+        except: pass
+
     db.delete(db_survey)
     db.commit()
-    print(f"Deleted survey with ID: {survey_id}")
     return {"message": "Survey deleted successfully"}
 
 @app.delete("/surveys")
 def clear_all_surveys(db: Session = Depends(get_db)):
-    print("Incoming request to clear all surveys")
+    surveys = db.query(Survey).all()
+    for s in surveys:
+        if s.audio_path and os.path.exists(s.audio_path):
+            try: os.remove(s.audio_path)
+            except: pass
+            
     db.query(Survey).delete()
     db.commit()
-    print("Cleared all surveys")
+    return {"message": "All surveys cleared"}
