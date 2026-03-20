@@ -326,7 +326,8 @@ def perform_audit(
     form_location: str,
     form_mobile: str,
     segments: Optional[List[Dict[str, Any]]] = None,
-    audio_path: Optional[str] = None
+    audio_path: Optional[str] = None,
+    llm_data: Optional[Dict[str, Any]] = None
 ):
     # 0. Initialize Timestamps
     question_timestamps: Dict[str, str] = {
@@ -339,25 +340,34 @@ def perform_audit(
         for field in question_timestamps.keys():
             question_timestamps[field] = find_question_timestamp(transcript, field, segments)
             
-    # 2. Extract Values (with hallucination prevention for Name & Mobile)
-    detected_age = extract_age(transcript)
+    # 2. Extract Values
+    # Use LLM data if available, otherwise fallback to regex
+    llm_age = llm_data.get("age") if llm_data else None
+    detected_age = int(llm_age) if llm_age and str(llm_age).isdigit() else extract_age(transcript)
     
-    # Only detect name/mobile if question was asked OR if it's a very confident match with form
-    # This prevents random nouns/numbers from being attributed wrongly
-    
-    # NAME: Only detect if name question asked or extremely confident match
-    potential_name = extract_name(transcript)
+    # NAME
+    llm_name = llm_data.get("name") if llm_data else None
+    potential_name = llm_name if llm_name else extract_name(transcript)
     if question_timestamps["name"] != "Not Detected" or (potential_name and names_match(form_name, potential_name)):
         detected_name = potential_name
     else:
         detected_name = None
         
-    detected_profession = extract_profession(transcript, form_profession)
-    detected_education = extract_education(transcript)
-    detected_location = extract_district(transcript)
+    # PROFESSION
+    llm_prof = llm_data.get("profession") if llm_data else None
+    detected_profession = llm_prof if llm_prof else extract_profession(transcript, form_profession)
     
-    # MOBILE: Only detect if mobile question asked or extremely confident match
-    potential_mobile = extract_mobile(transcript)
+    # EDUCATION
+    llm_edu = llm_data.get("education") if llm_data else None
+    detected_education = llm_edu if llm_edu else extract_education(transcript)
+    
+    # LOCATION
+    llm_loc = llm_data.get("location") if llm_data else None
+    detected_location = llm_loc if llm_loc else extract_district(transcript)
+    
+    # MOBILE
+    llm_mobile = llm_data.get("mobile") if llm_data else None
+    potential_mobile = llm_mobile if llm_mobile else extract_mobile(transcript)
     if question_timestamps["mobile"] != "Not Detected" or (potential_mobile and str(form_mobile) == str(potential_mobile)):
         detected_mobile = potential_mobile
     else:

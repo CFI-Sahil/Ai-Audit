@@ -66,8 +66,18 @@ async def upload_survey(
             transcript = "AI Transcription failed."
             segments = []
         
-        # 2. Audit logic
-        audit_result = perform_audit(transcript, age, name, profession, education, location, mobile, segments, saved_filename)
+        # 2. Extract structured info using LLM
+        try:
+            llm_data = await whisper_service.extract_structured_info(transcript)
+        except Exception as ee:
+            print(f"LLM extraction error: {ee}")
+            llm_data = None
+            
+        # 3. Audit logic
+        audit_result = perform_audit(
+            transcript, int(age), name, profession, education, location, mobile, 
+            segments=segments, audio_path=saved_filename, llm_data=llm_data
+        )
         
         # 3. Save to database
         db_survey = Survey(

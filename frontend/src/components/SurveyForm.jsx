@@ -50,11 +50,17 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                             <input
                                 type="text"
                                 placeholder="e.g. John Doe"
-                                className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
+                                className={`w-full py-3 px-4 border-[1.5px] rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)] ${formData.name && !validateName(formData.name) ? 'border-red-500' : 'border-border-muted'}`}
                                 value={formData.name}
-                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                onChange={e => {
+                                    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                                    setFormData({ ...formData, name: val });
+                                }}
                                 required
                             />
+                            {formData.name && !validateName(formData.name) && (
+                                <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1">Name must be at least 2 letters</p>
+                            )}
                         </div>
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
@@ -65,7 +71,7 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                                 type="text"
                                 inputMode="numeric"
                                 placeholder="Enter age"
-                                className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
+                                className={`w-full py-3 px-4 border-[1.5px] rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)] ${formData.age && !validateAge(formData.age) ? 'border-red-500' : 'border-border-muted'}`}
                                 value={formData.age}
                                 onChange={e => {
                                     const val = e.target.value.replace(/\D/g, '');
@@ -73,6 +79,9 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                                 }}
                                 required
                             />
+                            {formData.age && !validateAge(formData.age) && (
+                                <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1">Age must be 2-3 digits</p>
+                            )}
                         </div>
 
                         <div>
@@ -83,11 +92,17 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                             <input
                                 type="text"
                                 placeholder="e.g. Businessman"
-                                className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
+                                className={`w-full py-3 px-4 border-[1.5px] rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)] ${formData.profession && !validateProfession(formData.profession) ? 'border-red-500' : 'border-border-muted'}`}
                                 value={formData.profession}
-                                onChange={e => setFormData({ ...formData, profession: e.target.value })}
+                                onChange={e => {
+                                    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                                    setFormData({ ...formData, profession: val });
+                                }}
                                 required
                             />
+                            {formData.profession && !validateProfession(formData.profession) && (
+                                <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1">Profession must be at least 4 letters</p>
+                            )}
                         </div>
 
                         <div>
@@ -98,11 +113,17 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                             <input
                                 type="text"
                                 placeholder="e.g. Graduate"
-                                className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
+                                className={`w-full py-3 px-4 border-[1.5px] rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)] ${formData.education && !validateEducation(formData.education) ? 'border-red-500' : 'border-border-muted'}`}
                                 value={formData.education}
-                                onChange={e => setFormData({ ...formData, education: e.target.value })}
+                                onChange={e => {
+                                    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                                    setFormData({ ...formData, education: val });
+                                }}
                                 required
                             />
+                            {formData.education && !validateEducation(formData.education) && (
+                                <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1">Education must be at least 2 letters</p>
+                            )}
                         </div>
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
@@ -112,11 +133,17 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                             <input
                                 type="text"
                                 placeholder="e.g. Mumbai"
-                                className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
+                                className={`w-full py-3 px-4 border-[1.5px] rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)] ${formData.location && !validateLocation(formData.location) ? 'border-red-500' : 'border-border-muted'}`}
                                 value={formData.location}
-                                onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                onChange={e => {
+                                    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                                    setFormData({ ...formData, location: val });
+                                }}
                                 required
                             />
+                            {formData.location && !validateLocation(formData.location) && (
+                                <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1">Location must be at least 2 letters</p>
+                            )}
                         </div>
                         <div>
                             <label className="flex items-center justify-between text-sm font-bold text-text-dark mb-2">
@@ -127,7 +154,7 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                                 type="text"
                                 inputMode="numeric"
                                 placeholder="e.g. 9876543210"
-                                className="w-full py-3 px-4 border-[1.5px] border-border-muted rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)]"
+                                className={`w-full py-3 px-4 border-[1.5px] rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)] ${formData.mobile && !validateMobile(formData.mobile) ? 'border-red-500' : 'border-border-muted'}`}
                                 value={formData.mobile}
                                 onChange={e => {
                                     const val = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -136,6 +163,9 @@ const SurveyForm = ({ formData, setFormData, file, setFile, handleUpload, loadin
                                 required
                                 maxLength={10}
                             />
+                            {formData.mobile && !validateMobile(formData.mobile) && (
+                                <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1 leading-tight">10 digits starting with 7, 8, or 9</p>
+                            )}
                         </div>
                     </div>
 

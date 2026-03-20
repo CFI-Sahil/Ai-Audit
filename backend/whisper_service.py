@@ -96,7 +96,7 @@ class WhisperService:
                         model=self.model_name,
                         response_format="verbose_json",
                         temperature=0.0,
-                        prompt="Format: Conversation. This is an interview. Do not transcribe background noise or silence."
+                        prompt="This is a recorded survey interview. Please provide a clean transcript of the conversation."
                     )
                 
                 print(f"DEBUG: Groq response for chunk {i} received.")
@@ -157,6 +157,74 @@ class WhisperService:
                 "language": "en"
             }
         }
+
+    async def extract_structured_info(self, transcript: str):
+        """Extract structured information from transcript using Llama 3 on Groq."""
+        if not transcript or len(transcript.strip()) < 10:
+            return {
+                "name": None, "age": None, "education": None,
+                "profession": None, "location": None, "mobile": None
+            }
+        
+        prompt = f"""You are an expert AI trained to extract information from noisy interview transcripts.
+
+The transcript contains:
+- Questions and answers
+- Multiple speakers
+- Noise and repeated lines
+
+Your job:
+- Extract ONLY answers given by the respondent
+- Ignore interviewer questions
+- Ignore repeated/system lines
+- If multiple answers exist → choose the MOST CONSISTENT or FIRST clear answer
+- If unclear → return null
+
+Extract:
+- Name
+- Age
+- Education
+- Profession
+- Location
+- Mobile Number
+
+Return ONLY JSON:
+{{
+  "name": "",
+  "age": "",
+  "education": "",
+  "profession": "",
+  "location": "",
+  "mobile": ""
+}}
+
+Transcript:
+"{transcript}"
+"""
+        try:
+            print("--- Extracting structured info via Groq (Llama 3) ---")
+            response = await self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that outputs only JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                model="llama3-8b-8192",
+                temperature=0,
+                response_format={"type": "json_object"}
+            )
+            
+            content = response.choices[0].message.content
+            import json
+            data = json.loads(content)
+            print(f"DEBUG: LLM Extracted Data: {data}")
+            return data
+        except Exception as e:
+            print(f"Error in LLM extraction: {e}")
+            return {
+                "name": None, "age": None, "education": None,
+                "profession": None, "location": None, "mobile": None
+            }
+
 
 # Initializing with Groq
 whisper_service = WhisperService("whisper-large-v3")
