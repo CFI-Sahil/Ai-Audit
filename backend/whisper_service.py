@@ -1,7 +1,9 @@
 import os
+import re
 import time
 import math
 import asyncio
+from typing import List, Optional, Dict, Any
 from groq import AsyncGroq
 from pydub import AudioSegment
 from dotenv import load_dotenv
@@ -158,37 +160,89 @@ class WhisperService:
             }
         }
 
+    def _clean_transcript(self, text):
+        text = re.sub(r"do not transcribe background noise or silence", "", text, flags=re.I)
+        text = re.sub(r"this is an interview", "", text, flags=re.I)
+        text = re.sub(r"transcription by castingwords", "", text, flags=re.I)
+        text = re.sub(r"translating", "", text, flags=re.I)
+        text = re.sub(r"\s+", " ", text)
+        return text.strip()
+
+    def _extract_qa(self, transcript):
+        lines = re.split(r'[.?\n]', transcript)
+        qa = []
+        last_question = None
+        for line in lines:
+            line = line.strip()
+            if not line: continue
+            if (line.lower().startswith(("what", "do", "is", "have")) or "?" in line):
+                last_question = line
+            elif last_question:
+                qa.append({"question": last_question, "answer": line})
+                last_question = None
+        return qa
+
+    def _format_for_llm(self, qa):
+        return "\n".join([f"Q: {q['question']}\nA: {q['answer']}" for q in qa])
+
+    def _validate_output(self, response_text):
+        import json
+        try:
+            # Handle potential markdown blocks
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0].strip()
+            
+            data = json.loads(response_text)
+            # clean mobile
+            if data.get("mobile"):
+                match = re.search(r"\d{10}", str(data["mobile"]))
+                data["mobile"] = match.group(0) if match else None
+            # clean age
+            if data.get("age"):
+                try:
+                    match = re.search(r"\d+", str(data["age"]))
+                    data["age"] = int(match.group(0)) if match else None
+                except:
+                    data["age"] = None
+            return data
+        except Exception as e:
+            print(f"Validation error: {e}")
+            return None
+
     async def extract_structured_info(self, transcript: str):
-        """Extract structured information from transcript using Llama 3 on Groq."""
+        """Advanced extraction pipeline using cleaning, Q&A, and Llama 3.3 70B."""
         if not transcript or len(transcript.strip()) < 10:
             return {
                 "name": None, "age": None, "education": None,
                 "profession": None, "location": None, "mobile": None
             }
         
-        prompt = f"""You are an expert AI trained to extract information from noisy interview transcripts.
+        print("--- Starting Advanced Extraction Pipeline ---")
+        
+        # 1. Clean Transcript
+        clean_text = self._clean_transcript(transcript)
+        
+        # 2. Extract Q&A Pairs
+        qa_pairs = self._extract_qa(clean_text)
+        
+        # 3. Format for LLM
+        formatted_text = self._format_for_llm(qa_pairs)
+        if not formatted_text:
+            formatted_text = clean_text # Fallback if Q&A extraction fails
+            
+        print(f"DEBUG: Formatted Q&A length: {len(formatted_text)}")
 
-The transcript contains:
-- Questions and answers
-- Multiple speakers
-- Noise and repeated lines
+        prompt = f"""Extract user details ONLY from answers given by the respondent.
 
-Your job:
-- Extract ONLY answers given by the respondent
-- Ignore interviewer questions
-- Ignore repeated/system lines
-- If multiple answers exist → choose the MOST CONSISTENT or FIRST clear answer
-- If unclear → return null
+Rules:
+- Ignore questions
+- Use only answers
+- If multiple answers → choose most relevant
+- If unclear or conflicting → return null
 
-Extract:
-- Name
-- Age
-- Education
-- Profession
-- Location
-- Mobile Number
-
-Return ONLY JSON:
+Return JSON:
 {{
   "name": "",
   "age": "",
@@ -198,33 +252,100 @@ Return ONLY JSON:
   "mobile": ""
 }}
 
-Transcript:
-"{transcript}"
+Data:
+{formatted_text}
 """
         try:
-            print("--- Extracting structured info via Groq (Llama 3) ---")
+            print("--- Requesting Llama 3.3 70B via Groq ---")
             response = await self.client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant that outputs only JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                model="llama3-8b-8192",
+                model="llama-3.3-70b-versatile",
                 temperature=0,
                 response_format={"type": "json_object"}
             )
             
             content = response.choices[0].message.content
-            import json
-            data = json.loads(content)
-            print(f"DEBUG: LLM Extracted Data: {data}")
-            return data
+            
+            # 5. Validation Layer
+            final_data = self._validate_output(content)
+            
+            if not final_data:
+                print("WARNING: Validation failed, returning null structure.")
+                return {
+                    "name": None, "age": None, "education": None,
+                    "profession": None, "location": None, "mobile": None
+                }
+                
+            print(f"DEBUG: Pipeline Structured Data: {final_data}")
+            return final_data
+
         except Exception as e:
-            print(f"Error in LLM extraction: {e}")
+            print(f"Error in Advanced extraction pipeline: {e}")
             return {
                 "name": None, "age": None, "education": None,
                 "profession": None, "location": None, "mobile": None
             }
 
+
+    async def analyze_z_audit_issues(self, transcript: str, registration_details: Optional[List[List[str]]] = None):
+        """Specially aimed at Z-AUDIT automated issue detection."""
+        if not transcript or len(transcript.strip()) < 10:
+            return {
+                "is_fake_form": True, "fake_form_reason": "Empty transcript.",
+                "is_mimicry": False, "is_force_survey": False, "is_multiple_respondents": False, "is_data_mismatch": False
+            }
+        
+        reg_text = ""
+        if registration_details:
+            reg_text = "\nRegistration Details:\n" + "\n".join([f"- {d[1]}: {d[0]}" for d in registration_details])
+
+        prompt = f"""You are a forensic auditor. Analyze the transcript for signs of fraud or low quality.
+
+Detect:
+1. Fake Form: Is it just noise, silence, or meaningless/repetitive words?
+2. Mimicry: Does the surveyor seem to be answering for the respondent? Look for same tone/fast speed without pause.
+3. Force Survey: Does it seem like the respondent is being forced or answers are being 'manufactured'?
+4. Multiple Respondents: Are there more than two distinct voices (surveyor + 1 respondent)?
+5. Data Mismatch: Does information in the transcript contradict registration details?
+
+Transcript:
+{transcript}
+{reg_text}
+
+Return JSON ONLY:
+{{
+  "is_fake_form": bool,
+  "fake_form_reason": "string or null",
+  "is_mimicry": bool,
+  "mimicry_reason": "string or null",
+  "is_force_survey": bool,
+  "force_survey_reason": "string or null",
+  "is_multiple_respondents": bool,
+  "multiple_respondents_reason": "string or null",
+  "is_data_mismatch": bool,
+  "data_mismatch_reason": "string or null"
+}}
+"""
+        try:
+            print("--- Running Z-AUDIT Issue Scanner (Llama 3.3 70B) ---")
+            response = await self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are a forensic auditor. Return JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                model="llama-3.3-70b-versatile",
+                temperature=0,
+                response_format={"type": "json_object"}
+            )
+            import json
+            data = json.loads(response.choices[0].message.content)
+            return data
+        except Exception as e:
+            print(f"Error in Issue Scanner: {e}")
+            return {}
 
 # Initializing with Groq
 whisper_service = WhisperService("whisper-large-v3")

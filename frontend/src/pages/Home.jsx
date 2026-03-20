@@ -20,22 +20,54 @@ const Home = ({
     file, 
     setFile 
 }) => {
+    const [uid, setUid] = useState('');
 
     const clearForm = () => {
         setFormData({
-            name: '',
-            age: '',
-            profession: '',
-            education: '',
-            location: '',
-            mobile: ''
+            name: '', age: '', profession: '', education: '', location: '', mobile: ''
         });
         setFile(null);
         setResult(null);
+        setUid('');
     };
 
-    const handleUpload = async (e) => {
+    const handleFetchUid = async (fetchUid) => {
+        if (!fetchUid) return;
+        setLoading(true);
+        try {
+            const res = await axios.get(`${API_BASE}/fetch-uid/${fetchUid}`);
+            setFormData(res.data.form_data);
+            setUid(fetchUid);
+        } catch (err) {
+            alert(err.response?.data?.detail || "UID not found or error fetching data.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpload = async (e, directUid = null) => {
         e.preventDefault();
+        
+        const targetUid = directUid || uid;
+
+        if (targetUid) {
+            // Process via UID
+            setLoading(true);
+            try {
+                const res = await axios.post(`${API_BASE}/process-uid`, { uid: targetUid });
+                setResult(res.data);
+                if (res.data.audit_result?.status === 'Match' || res.data.audit_result?.z_audit?.score >= 8) {
+                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#000000', '#808080', '#D1D5DB'] });
+                }
+            } catch (err) {
+                alert(err.response?.data?.detail || "Error processing UID. Make sure backend is running.");
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
+        // Standard Manual Flow
         if (!file || !formData.name || !formData.age) return;
 
         setLoading(true);
@@ -51,7 +83,7 @@ const Home = ({
         try {
             const res = await axios.post(`${API_BASE}/upload-survey`, data);
             setResult(res.data);
-            if (res.data.audit_result.status === 'Match') {
+            if (res.data.audit_result?.status === 'Match') {
                 confetti({
                     particleCount: 150,
                     spread: 70,
@@ -87,6 +119,8 @@ const Home = ({
                 handleUpload={handleUpload}
                 loading={loading}
                 clearForm={clearForm}
+                uid={uid}
+                handleFetchUid={handleFetchUid}
             />
 
             <AuditResult

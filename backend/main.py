@@ -6,10 +6,13 @@ import shutil
 import os
 import uuid
 import json
+import pandas as pd
+from pydantic import BaseModel
 
 from database import SessionLocal, Survey
 from whisper_service import whisper_service
 from audit_logic import perform_audit
+from z_audit_engine import run_automated_audit
 
 app = FastAPI()
 
@@ -118,6 +121,120 @@ async def upload_survey(
         print(f"Server Error: {e}")
         if os.path.exists(saved_filename):
             os.remove(saved_filename)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/fetch-uid/{uid}")
+def fetch_uid_data(uid: str):
+    """Fetch user registration details to auto-fill the frontend form."""
+    excel_path = "../data_with_json.xlsx"
+    if not os.path.exists(excel_path):
+        excel_path = "data_with_json.xlsx" # Try local if running from parent
+        if not os.path.exists(excel_path):
+            raise HTTPException(status_code=404, detail="Data source not found.")
+            
+    try:
+        df = pd.read_excel(excel_path, header=None)
+        row = None
+        current_uid = str(uid).strip()
+        for i in range(len(df)):
+            cell_uid = str(df.iloc[i, 1]).split('.')[0]
+            if cell_uid == current_uid:
+                row = df.iloc[i]
+                break
+                
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"UID {uid} not found.")
+            
+        data = json.loads(row[2])
+        reg_details = data.get("registration_details", [])
+        
+        # Default empty dict to map frontend form
+        form_data = {
+            "name": "", "age": "", "profession": "", "education": "Not Provided", "location": "", "mobile": ""
+        }
+        
+        # Manual extraction based on observed keys
+        for entry in reg_details:
+            if isinstance(entry, list) and len(entry) >= 2 and entry[0]:
+                val = str(entry[0]).strip()
+                label = str(entry[1]).strip().upper()
+                
+                if label == "FR NAME": form_data["name"] = val
+                elif label == "MOBILE NUMBER": form_data["mobile"] = val
+                elif label == "DOB":
+                    # basic age calc (2026 - birth_year)
+                    try:
+                        year = int(val.split('-')[0])
+                        form_data["age"] = str(2026 - year)
+                    except:
+                        pass
+                elif label == "AREA": form_data["location"] = val
+                elif label == "OCCUPATION": form_data["profession"] = val
+                
+        return {"uid": current_uid, "form_data": form_data}
+        
+    except Exception as e:
+        print(f"Error fetching UID: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ProcessUidRequest(BaseModel):
+    uid: str
+
+@app.post("/process-uid")
+async def process_uid(request: ProcessUidRequest, db: Session = Depends(get_db)):
+    """Automated backend processing without manual file upload."""
+    uid = request.uid
+    try:
+        result = await run_automated_audit(uid, media_base_path="..")
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+            
+        # Now result is standard_audit which contains z_audit
+        audio_path = result.get("audio_path")
+        if audio_path and os.path.exists(audio_path):
+            import shutil
+            filename = os.path.basename(audio_path)
+            saved_filename = f"saved_audio/{uid}_{filename}"
+            try:
+                shutil.copyfile(audio_path, saved_filename)
+                result["audio_url"] = f"http://localhost:8000/audio/{uid}_{filename}"
+            except Exception as e:
+                print(f"Failed to copy audio: {e}")
+
+        db_survey = Survey(
+            name=result["detected_values"].get("name", uid),
+            form_age=0, # Fallback, could extract from result if we really wanted
+            form_profession="N/A",
+            form_education="N/A",
+            form_location="N/A",
+            form_mobile="N/A",
+            transcript=result.get("transcript", "Transcript unavailable"),
+            detected_age=result["detected_values"].get("age", 0),
+            detected_name=result["detected_values"].get("name", "N/A"),
+            detected_profession=result["detected_values"].get("profession", "N/A"),
+            detected_education=result["detected_values"].get("education", "N/A"),
+            detected_location=result["detected_values"].get("location", "N/A"),
+            detected_mobile=result["detected_values"].get("mobile", "N/A"),
+            question_timestamps=json.dumps(result.get("timestamps", {}).get("questions", {})),
+            audio_path=f"uid_{uid}_audio", # stub
+            result=result.get("status", "Unknown"),
+            emotion=result.get("sentiment", {}).get("emotion", "NEUTRAL"),
+            meaning=result.get("sentiment", {}).get("meaning", "NEUTRAL"),
+            interpretation=result.get("sentiment", {}).get("interpretation", "System Auto-Run"),
+            full_result_json=json.dumps(result)
+        )
+        db.add(db_survey)
+        db.commit()
+        db.refresh(db_survey)
+        
+        return {
+            "id": db_survey.id,
+            "transcript": result.get("transcript", "Processed via Z-AUDIT Automated Engine"),
+            "audit_result": result
+        }
+        
+    except Exception as e:
+        print(f"Error processing UID: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/surveys")
