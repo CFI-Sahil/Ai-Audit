@@ -77,33 +77,84 @@ const AuditRow = ({ label, submitted, questionTime, detected, detectedTime, stat
     );
 };
 
-const ClipCard = ({ label, time, isAvailable = true, onPlay }) => {
+const ClipCard = ({ label, time, isAvailable = true, audioUrl }) => {
     const [isPlaying, setIsPlaying] = React.useState(false);
     const [currentTime, setCurrentTime] = React.useState(0);
+    const [volume, setVolume] = React.useState(1); // 1.0, 0.5, 0 (muted)
+    const [playbackRate, setPlaybackRate] = React.useState(1);
+    const [showSpeedMenu, setShowSpeedMenu] = React.useState(false);
+    const audioRef = React.useRef(null);
+    const intervalRef = React.useRef(null);
 
-    const handlePlay = (e) => {
-        e.stopPropagation();
-        if (!isAvailable || time === 'Not Detected' || isPlaying) return;
+    const parseTime = (timeStr) => {
+        if (!timeStr || timeStr === "Not Detected") return 0;
+        const parts = timeStr.split(':').map(Number);
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        return parts[0] || 0;
+    };
 
-        setIsPlaying(true);
-        onPlay(time);
+    const startTimeInSec = React.useMemo(() => parseTime(time), [time]);
 
-        const startTime = Date.now();
-        const interval = setInterval(() => {
-            const elapsed = (Date.now() - startTime) / 1000;
-            if (elapsed >= 2) {
-                setIsPlaying(false);
-                setCurrentTime(0);
-                clearInterval(interval);
-            } else {
-                setCurrentTime(elapsed);
+    React.useEffect(() => {
+        return () => {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
             }
-        }, 100);
+        };
+    }, []);
+
+    const togglePlay = (e) => {
+        e.stopPropagation();
+        if (!isAvailable || !audioUrl || time === 'Not Detected') return;
+
+        if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+            if (intervalRef.current) clearInterval(intervalRef.current);
+        } else {
+            if (!audioRef.current) {
+                audioRef.current = new Audio(audioUrl);
+            }
+            audioRef.current.currentTime = startTimeInSec + currentTime;
+            audioRef.current.volume = volume;
+            audioRef.current.playbackRate = playbackRate;
+            audioRef.current.play();
+            setIsPlaying(true);
+
+            intervalRef.current = setInterval(() => {
+                const elapsed = audioRef.current.currentTime - startTimeInSec;
+                if (elapsed >= 2 || audioRef.current.ended) {
+                    audioRef.current.pause();
+                    setIsPlaying(false);
+                    setCurrentTime(0);
+                    clearInterval(intervalRef.current);
+                } else {
+                    setCurrentTime(elapsed);
+                }
+            }, 100);
+        }
+    };
+
+    const toggleVolume = (e) => {
+        e.stopPropagation();
+        const nextVolume = volume === 1 ? 0.5 : volume === 0.5 ? 0 : 1;
+        setVolume(nextVolume);
+        if (audioRef.current) audioRef.current.volume = nextVolume;
+    };
+
+    const changeSpeed = (speed, e) => {
+        e.stopPropagation();
+        setPlaybackRate(speed);
+        if (audioRef.current) audioRef.current.playbackRate = speed;
+        setShowSpeedMenu(false);
     };
 
     return (
         <div
-            className={`rounded-2xl p-4 border transition-all duration-300 ${isAvailable
+            className={`rounded-2xl p-4 border transition-all duration-300 relative ${isAvailable
                     ? 'bg-white border-gray-100 hover:border-black'
                     : 'bg-gray-50/50 border-gray-100 opacity-60'
                 }`}
@@ -119,7 +170,7 @@ const ClipCard = ({ label, time, isAvailable = true, onPlay }) => {
             </div>
 
             {isAvailable ? (
-                <div className="bg-gray-50 rounded-full py-1.5 px-4 flex items-center gap-4 w-full group cursor-pointer" onClick={handlePlay}>
+                <div className="bg-gray-50 rounded-full py-1.5 px-4 flex items-center gap-4 w-full group cursor-pointer" onClick={togglePlay}>
                     {isPlaying ? (
                         <Pause className="w-3.5 h-3.5 text-black fill-current" />
                     ) : (
@@ -132,13 +183,42 @@ const ClipCard = ({ label, time, isAvailable = true, onPlay }) => {
 
                     <div className="flex-1 h-1 bg-gray-300 rounded-full relative">
                         <div
-                            className="absolute left-0 top-0 bottom-0 bg-black rounded-full"
+                            className="absolute left-0 top-0 bottom-0 bg-black rounded-full transition-all duration-100"
                             style={{ width: `${(currentTime / 2) * 100}%` }}
                         />
                     </div>
 
-                    <Volume2 className="w-3.5 h-3.5 text-black opacity-60 group-hover:opacity-100" />
-                    <MoreVertical className="w-3.5 h-3.5 text-gray-400" />
+                    <div className="flex items-center gap-2 relative">
+                        {volume === 0 ? (
+                            <Activity className="w-3.5 h-3.5 text-red-500" onClick={toggleVolume} title="Muted" />
+                        ) : (
+                            <Volume2 
+                                className={`w-3.5 h-3.5 text-black transition-opacity ${volume === 0.5 ? 'opacity-40' : 'opacity-100'}`} 
+                                onClick={toggleVolume} 
+                                title={volume === 1 ? "High Volume" : "Low Volume"}
+                            />
+                        )}
+                        
+                        <div className="relative">
+                            <MoreVertical 
+                                className="w-3.5 h-3.5 text-gray-400 cursor-pointer hover:text-black" 
+                                onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(!showSpeedMenu); }}
+                            />
+                            {showSpeedMenu && (
+                                <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-100 rounded-xl shadow-xl p-2 z-50 min-w-[80px]">
+                                    {[0.5, 1, 1.5, 2].map(speed => (
+                                        <div 
+                                            key={speed}
+                                            className={`text-[10px] font-black p-2 rounded-lg cursor-pointer hover:bg-gray-50 mb-1 last:mb-0 ${playbackRate === speed ? 'bg-black text-white' : 'text-black'}`}
+                                            onClick={(e) => changeSpeed(speed, e)}
+                                        >
+                                            {speed}x
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             ) : (
                 <div className="border border-dashed border-gray-200 rounded-xl py-2 text-center">
@@ -365,12 +445,14 @@ const AuditResult = ({ result, formAge, formName, formProfession, formEducation,
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
-                    <ClipCard label="Name" time={timestamps.questions.name} onPlay={playSnippet} />
-                    <ClipCard label="Age" time={timestamps.questions.age} onPlay={playSnippet} />
-                    <ClipCard label="Location" time={timestamps.questions.location} onPlay={playSnippet} />
-                    <ClipCard label="Profession" time={timestamps.questions.profession} onPlay={playSnippet} />
-                    <ClipCard label="Education" time={timestamps.questions.education} isAvailable={timestamps.questions.education !== 'Not Detected'} onPlay={playSnippet} />
-                    <ClipCard label="Mobile" time={timestamps.questions.mobile} isAvailable={timestamps.questions.mobile !== 'Not Detected'} onPlay={playSnippet} />
+                    <ClipCard label="Name" time={timestamps.questions.name} audioUrl={audioUrl} />
+                    <ClipCard label="Age" time={timestamps.questions.age} audioUrl={audioUrl} />
+                    <ClipCard label="Location" time={timestamps.questions.location} audioUrl={audioUrl} />
+                    <ClipCard label="Profession" time={timestamps.questions.profession} audioUrl={audioUrl} />
+                    <ClipCard label="Education" time={timestamps.questions.education} 
+                        isAvailable={timestamps.questions.education !== 'Not Detected'} audioUrl={audioUrl} />
+                    <ClipCard label="Mobile" time={timestamps.questions.mobile} 
+                        isAvailable={timestamps.questions.mobile !== 'Not Detected'} audioUrl={audioUrl} />
                 </div>
             </div>
         </motion.div>

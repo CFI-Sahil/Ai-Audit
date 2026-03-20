@@ -149,6 +149,56 @@ function App() {
                             audioFile={file}
                         />
 
+                        {/* History Section */}
+                        {history.length > 0 && !result && (
+                            <div className="mt-20 text-left">
+                                <h3 className="text-2xl font-black text-black uppercase tracking-tighter mb-8">Recent Audits</h3>
+                                <div className="grid grid-cols-1 gap-4">
+                                    {history.map((item) => (
+                                        <div 
+                                            key={item.id} 
+                                            className="bg-white border border-gray-100 rounded-2xl p-6 flex justify-between items-center hover:border-black transition-all cursor-pointer group"
+                                            onClick={() => setResult(item)}
+                                        >
+                                            <div className="flex items-center gap-6">
+                                                <div className="bg-black text-white w-12 h-12 rounded-xl flex items-center justify-center font-black">
+                                                    {item.audit_result.status === 'Match' ? '✓' : '!'}
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{item.timestamp}</p>
+                                                    <h4 className="text-xl font-black text-black uppercase tracking-tight group-hover:underline">
+                                                        {item.name} ({item.age})
+                                                    </h4>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-6">
+                                                <div className="text-right">
+                                                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</p>
+                                                    <p className={`text-sm font-black uppercase ${item.audit_result.status === 'Match' ? 'text-green-500' : 'text-red-500'}`}>
+                                                        {item.audit_result.status}
+                                                    </p>
+                                                </div>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                                    className="bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 p-2 rounded-lg transition-colors"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-10 flex justify-center">
+                                    <button 
+                                        onClick={handleClearAll}
+                                        className="text-[10px] font-black text-gray-400 hover:text-red-500 uppercase tracking-widest transition-colors"
+                                    >
+                                        Clear All History
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <FeatureHighlights />
                     </motion.div>
                 </AnimatePresence>
