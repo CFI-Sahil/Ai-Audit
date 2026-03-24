@@ -19,6 +19,8 @@ const StatusBadge = ({ status, variant = "large" }) => {
     Match: "bg-green-500 text-white border-green-500",
     Mismatch: "bg-red-500 text-white border-red-500",
     Inconclusive: "bg-gray-400 text-white border-gray-400",
+    Clean: "bg-green-500 text-white border-green-500",
+    Flagged: "bg-red-500 text-white border-red-500 font-black px-4",
   };
 
   const sizeClasses =
@@ -42,6 +44,7 @@ const AuditRow = ({
   detected,
   detectedTime,
   status,
+  isRegexFallback,
   onPlay,
 }) => {
   const Icon = status === "Match" ? CheckCircle : AlertCircle;
@@ -107,6 +110,13 @@ const AuditRow = ({
           <p className="text-[10px] italic font-bold text-gray-400">
             @{detectedTime}
           </p>
+        )}
+        {isRegexFallback && (
+          <div className="mt-2">
+            <span className="bg-orange-100 text-orange-600 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+              Regex used as Emergency
+            </span>
+          </div>
         )}
       </div>
 
@@ -411,90 +421,100 @@ const AuditResult = ({
       {/* Z-AUDIT COMPONENT */}
       {za && (
         <div className="bg-white rounded-[32px] shadow-[0_20px_80px_rgba(0,0,0,0.08)] overflow-hidden border border-gray-100">
-          <div className="bg-black px-10 py-8 relative overflow-hidden">
+          <div className="bg-black px-10 py-10 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-white/10 to-transparent rounded-full -mr-64 -mt-64" />
-            <div className="relative z-10 flex flex-col md:flex-row justify-between md:items-center gap-6">
+            <div className="relative z-10 flex justify-between items-start">
               <div>
                 <div className="flex items-center bg-white rounded-full p-1 pl-1 pr-4 gap-2 mb-4 w-fit shadow-2xl">
-                  <StatusBadge
-                    status={za.status === "Approved" ? "Match" : "Mismatch"}
-                    variant="small"
-                  />
+                   <span className={`px-4 py-1 text-[11px] font-black tracking-[0.1em] rounded-full uppercase border shadow-sm ${za.status === 'Clean' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                      {za.status}
+                   </span>
                   <span className="text-[9px] font-black text-black italic tracking-widest uppercase opacity-70">
                     Z-AUDIT ENGINE
                   </span>
                 </div>
-                <h2 className="text-3xl font-black text-white uppercase tracking-tighter">
-                  Automated Audit Result
+                <h2 className="text-4xl font-black text-white uppercase tracking-tighter leading-none mb-1">
+                  Z-Audit Forensic Analysis
                 </h2>
-                <p className="text-white/60 text-sm mt-2 font-medium tracking-wide">
+                <p className="text-white/60 text-sm font-medium tracking-wide">
                   UID: {za.uid}
                 </p>
               </div>
-              <div className="text-left md:text-right">
-                <div className="text-5xl font-black text-gray-200">
-                  {za.score}
-                  <span className="text-2xl text-white/50">/10</span>
+              <div className="text-right">
+                <div className="text-6xl font-black text-white leading-none">
+                  {za.final_score}
+                  <span className="text-2xl text-white/30 ml-1">/10</span>
                 </div>
-                <div className="text-white/80 text-[10px] uppercase tracking-widest font-bold mt-2">
-                  Final Score
+                <div className="text-white/60 text-[10px] uppercase tracking-widest font-black mt-2">
+                  Final Audit Score
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+          {/* Top Info Cards */}
+          <div className="p-10 pb-0 grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+            <div className="bg-gray-50/50 rounded-2xl p-6 border border-gray-100">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
                 Payment Decision
               </p>
               <h3
-                className={`text-2xl font-black uppercase tracking-tighter ${za.payment === "Full Payment" ? "text-green-600" : za.payment === "Partial Payment" ? "text-orange-500" : "text-red-500"}`}
+                className={`text-4xl font-black uppercase tracking-tighter ${za.payment_decision === "Full Payment" ? "text-green-600" : za.payment_decision === "Partial Payment" ? "text-orange-500" : "text-red-500"}`}
               >
-                {za.payment}
+                {za.payment_decision}
               </h3>
             </div>
-            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+            <div className="bg-gray-50/50 rounded-2xl p-6 border border-gray-100">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">
                 Issues Detected
               </p>
-              {za.issues && za.issues.length > 0 ? (
+              {za.issues_detected && za.issues_detected.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {za.issues.map((i, idx) => (
+                  {za.issues_detected.map((i, idx) => (
                     <span
                       key={idx}
-                      className="bg-red-100 text-red-700 font-bold px-3 py-1 rounded-lg text-xs uppercase"
+                      className="bg-red-50 text-red-600 font-black px-4 py-1.5 rounded-lg text-[11px] uppercase tracking-wide border border-red-100"
                     >
                       {i}
                     </span>
                   ))}
                 </div>
               ) : (
-                <span className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-lg text-xs uppercase">
+                <span className="bg-green-50 text-green-700 font-bold px-3 py-1 rounded-lg text-xs uppercase">
                   No Issues Detected
                 </span>
               )}
             </div>
           </div>
 
-          {za.evidence && za.evidence.length > 0 && (
-            <div className="px-10 pb-10">
-              <h4 className="text-sm font-black text-black uppercase tracking-tight mb-4 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500" /> Evidence
-                Tracker
-              </h4>
+          {/* Evidence Tracker Section */}
+          <div className="px-10 pb-10">
+            <h4 className="text-sm font-black text-black uppercase tracking-tight mb-4 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" /> Evidence Tracker
+            </h4>
+            
+            {za.evidence && za.evidence.length > 0 ? (
               <ul className="space-y-3">
                 {za.evidence.map((ev, idx) => (
                   <li
                     key={idx}
-                    className="bg-red-50/50 border border-red-100 text-red-900 text-sm font-medium p-4 rounded-xl leading-relaxed"
+                    className="bg-red-50/30 border border-red-100 p-5 rounded-2xl flex flex-col gap-1 hover:bg-red-50/50 transition-colors"
                   >
-                    {ev}
+                    <span className="text-[11px] font-black text-red-600 uppercase tracking-widest mb-0.5">
+                      {ev.issue}
+                    </span>
+                    <p className="text-red-900/80 text-sm font-bold leading-relaxed">
+                      {ev.detail}
+                    </p>
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
+            ) : (
+              <div className="bg-gray-50 rounded-2xl p-8 text-center border border-dashed border-gray-200">
+                <p className="text-gray-400 text-[11px] font-black uppercase tracking-widest">No detailed evidence reports generated for this audit.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -530,6 +550,7 @@ const AuditResult = ({
             detected={detected_values.name}
             detectedTime={timestamps.detected.name}
             status={statuses.name}
+            isRegexFallback={audit_result.is_regex_fallback?.name}
             onPlay={playSnippet}
           />
           <AuditRow
@@ -539,6 +560,7 @@ const AuditResult = ({
             detected={detected_values.age}
             detectedTime={timestamps.detected.age}
             status={statuses.age}
+            isRegexFallback={audit_result.is_regex_fallback?.age}
             onPlay={playSnippet}
           />
           <AuditRow
@@ -548,6 +570,7 @@ const AuditResult = ({
             detected={detected_values.profession}
             detectedTime={timestamps.detected.profession}
             status={statuses.profession}
+            isRegexFallback={audit_result.is_regex_fallback?.profession}
             onPlay={playSnippet}
           />
           <AuditRow
@@ -557,6 +580,7 @@ const AuditResult = ({
             detected={detected_values.education}
             detectedTime={timestamps.detected.education}
             status={statuses.education}
+            isRegexFallback={audit_result.is_regex_fallback?.education}
             onPlay={playSnippet}
           />
           <AuditRow
@@ -566,6 +590,7 @@ const AuditResult = ({
             detected={detected_values.location}
             detectedTime={timestamps.detected.location}
             status={statuses.location}
+            isRegexFallback={audit_result.is_regex_fallback?.location}
             onPlay={playSnippet}
           />
           <AuditRow
@@ -575,6 +600,7 @@ const AuditResult = ({
             detected={detected_values.mobile}
             detectedTime={timestamps.detected.mobile}
             status={statuses.mobile}
+            isRegexFallback={audit_result.is_regex_fallback?.mobile}
             onPlay={playSnippet}
           />
         </div>
@@ -584,12 +610,25 @@ const AuditResult = ({
           <span className="absolute top-6 left-10 text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">
             Verification Transcript
           </span>
-          <div className="bg-white border border-gray-100 rounded-3xl p-6 relative flex gap-6 max-h-[400px] overflow-y-auto">
-            <Quote className="w-12 h-12 text-gray-50 shrink-0 fill-current absolute -top-4 -left-2" />
-            <p className="text-sm font-bold text-gray-600 italic leading-loose relative z-10">
-              "{transcript}"
-            </p>
-          </div>
+            <div className="bg-white border border-gray-100 rounded-3xl p-6 relative flex gap-6 max-h-[400px] overflow-y-auto">
+              <Quote className="w-12 h-12 text-gray-50 shrink-0 fill-current absolute -top-4 -left-2" />
+              <div className="text-sm font-bold text-gray-600 italic leading-loose relative z-10 whitespace-pre-wrap w-full">
+                {transcript.split('\n').map((line, idx) => {
+                  if (line.startsWith('[') && line.includes(']:')) {
+                    const [speaker, ...rest] = line.split(']:');
+                    return (
+                      <div key={idx} className="mb-2">
+                        <span className="text-black font-black uppercase text-[10px] tracking-widest mr-2 bg-gray-100 px-2 py-0.5 rounded">
+                          {speaker.replace('[', '')}
+                        </span>
+                        <span>{rest.join(']:')}</span>
+                      </div>
+                    );
+                  }
+                  return <p key={idx}>{line}</p>;
+                })}
+              </div>
+            </div>
 
           <div className="mt-8 flex items-center justify-between">
             <div className="flex items-center gap-4">
