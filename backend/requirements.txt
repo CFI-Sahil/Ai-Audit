@@ -6,7 +6,6 @@ pydantic
 python-dotenv
 groq
 pydub
-audioop-lsm
 pandas
 openpyxl
 opensmile
