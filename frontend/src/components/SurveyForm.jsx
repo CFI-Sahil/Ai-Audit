@@ -464,12 +464,10 @@ const SurveyForm = ({
                 <h4 className="font-extrabold text-text-dark mb-1">
                   {file
                     ? file.name
-                    : uid
-                      ? `Audio loaded for UID: ${uid}`
-                      : "Drag & drop audio file"}
+                    : "Upload survey audio manually"}
                 </h4>
                 <p className="text-xs text-slate-500 font-medium tracking-tight">
-                  MP3, WAV, or AAC (Max 50MB)
+                  {file ? "File ready for audit" : "MP3, WAV, or AAC (Max 50MB)"}
                 </p>
                 <div className="mt-5 border-2 border-accent rounded-lg px-6 py-2 inline-block text-sm font-black text-text-dark bg-white hover:bg-accent hover:text-white transition-all">
                   Browse Files
