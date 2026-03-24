@@ -166,33 +166,8 @@ const SurveyForm = ({
     <div className="flex flex-col gap-6 mb-8">
       {/* RESTACKED UID & EXCEL SECTION */}
       <div className="flex flex-col md:flex-row items-center gap-4">
-        {/* UID Box - Moving outside the card as per user request */}
-        <div className="flex bg-slate-900 rounded-2xl p-2 pl-6 items-center w-full md:w-[450px] border border-white/10 shadow-2xl transition-all hover:border-accent/40 group">
-          <Search className="text-accent w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
-          <input
-            type="text"
-            placeholder="Search Survey UID to Auto-Fill..."
-            className="bg-transparent border-none text-white focus:outline-none focus:ring-0 px-0 flex-1 placeholder:text-gray-500 font-bold text-base tracking-wide"
-            value={uidInput}
-            onChange={(e) => setUidInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleManualAutoFill();
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="bg-accent text-white py-3 px-6 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white hover:text-accent transition-all shadow-[0_4px_15px_rgba(255,50,0,0.2)]"
-            onClick={handleManualAutoFill}
-          >
-            Auto-Fill
-          </button>
-        </div>
-
-        {/* Excel Upload Hub */}
-        <div className="flex-1 flex items-center bg-white/50 backdrop-blur-sm rounded-2xl p-2 pr-4 border border-border-muted shadow-sm w-full md:w-auto">
+        {/* Excel Upload Hub (Now on the Left) */}
+        <div className="flex-1 flex items-center bg-white rounded-2xl p-2 pr-4 border border-border-muted shadow-sm w-full md:w-auto transition-all hover:bg-gray-50">
           <input
             type="file"
             id="excel-upload"
@@ -202,7 +177,7 @@ const SurveyForm = ({
           />
           <label
             htmlFor="excel-upload"
-            className="flex items-center gap-3 cursor-pointer py-2 px-5 hover:bg-white rounded-xl transition-all w-full"
+            className="flex items-center gap-3 cursor-pointer py-2 px-5 rounded-xl transition-all w-full"
           >
             <div className={`p-2 rounded-lg ${excelRows ? 'bg-green-100 text-green-600' : 'bg-accent/10 text-accent'}`}>
               <FileSpreadsheet className="w-5 h-5" />
@@ -221,6 +196,31 @@ const SurveyForm = ({
               <FileUp className="w-4 h-4 text-gray-400" />
             )}
           </label>
+        </div>
+
+        {/* UID Box (Now on the Right) - Matched to form input style */}
+        <div className="flex bg-white rounded-2xl p-2 pl-6 items-center w-full md:w-[450px] border border-border-muted shadow-sm transition-all focus-within:border-accent focus-within:shadow-[0_0_0_2px_rgba(0,0,0,0.05)] group">
+          <Search className="text-accent w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
+          <input
+            type="text"
+            placeholder="Search Survey UID to Auto-Fill..."
+            className="bg-transparent border-none text-text-dark focus:outline-none focus:ring-0 px-0 flex-1 placeholder:text-gray-400 font-bold text-base tracking-wide"
+            value={uidInput}
+            onChange={(e) => setUidInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleManualAutoFill();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="bg-accent text-white py-3 px-6 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white hover:text-accent border-2 border-accent transition-all shadow-md active:shadow-sm"
+            onClick={handleManualAutoFill}
+          >
+            Auto-Fill
+          </button>
         </div>
       </div>
 
