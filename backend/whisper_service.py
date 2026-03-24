@@ -249,32 +249,41 @@ OUTPUT FORMAT (JSON ONLY):
                 response_format={"type": "json_object"}
             )
             if response:
-                role_map = json.loads(response.choices[0].message.content)
-                # Heuristic Fallback: 
-                # - Segments with '?' or survey-keywords => Surveyor
-                # - Otherwise follow the role of the most similar segment or alternate cautiously
-                survey_keywords = ["accessmind", "survey", "contact", "sms", "phone", "call", "service", "withdraw", "money", "questions", "thank you", "okay", "alright"]
-                
-                s0_role = role_map.get("S0", "Surveyor")
-                s1_role = role_map.get("S1", "Respondent")
-                
+                try:
+                    role_map = json.loads(response.choices[0].message.content)
+                except:
+                    role_map = {}
+
+                # HEURISTIC RULES (Surveyor Disclaimers/Questions)
+                survey_keywords = [
+                    "accessmind", "axis mind", "survey", "contact", "sms", "phone", "call", 
+                    "service", "withdraw", "money", "questions", "thank you", "okay", "alright",
+                    "recording", "provide", "information", "security", "health", "number",
+                    "welcome", "namaskar", "hello", "sir", "madam", "speaking", "representative",
+                    "personal info", "verify", "audit", "system", "please", "we will", "you can",
+                    "if you want", "we are here", "give your", "details", "1800", "080", "customer",
+                    "experience", "share", "feedback", "rating", "score"
+                ]
+
                 for idx, s in enumerate(segments):
+                    text_lower = s["text"].lower()
                     sid = f"S{idx}"
-                    if sid in role_map:
+                    
+                    # 1. Strong Heuristic (Forces Surveyor)
+                    if "?" in text_lower or any(kw in text_lower for kw in survey_keywords):
+                        s["speaker"] = "Surveyor"
+                    # 2. LLM Result (if heuristic didn't trigger)
+                    elif sid in role_map:
                         s["speaker"] = role_map[sid]
+                    # 3. Contextual Fallback
                     else:
-                        text_lower = s["text"].lower()
-                        # Content-based heuristic
-                        if "?" in text_lower or any(kw in text_lower for kw in survey_keywords):
-                            s["speaker"] = "Surveyor"
+                        # If no clear signal, alternate based on the previous segment
+                        prev_speaker = segments[idx-1]["speaker"] if idx > 0 else "Surveyor"
+                        # If previous was a question, this is likely respondent
+                        if idx > 0 and "?" in segments[idx-1]["text"]:
+                            s["speaker"] = "Respondent"
                         else:
-                            # If no clear signal, alternate based on the previous segment
-                            prev_speaker = segments[idx-1]["speaker"] if idx > 0 else "Surveyor"
-                            # If previous was a question, this is likely respondent
-                            if idx > 0 and "?" in segments[idx-1]["text"]:
-                                s["speaker"] = "Respondent"
-                            else:
-                                s["speaker"] = prev_speaker # Assume same person continuing
+                            s["speaker"] = prev_speaker # Assume same person continuing
             else:
                 for idx, s in enumerate(segments):
                     text_lower = s["text"].lower()
