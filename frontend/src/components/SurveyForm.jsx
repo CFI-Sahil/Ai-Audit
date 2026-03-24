@@ -15,7 +15,9 @@ import {
   Search,
   FileSpreadsheet,
   FileUp,
+  X,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const SurveyForm = ({
   formData,
@@ -32,6 +34,12 @@ const SurveyForm = ({
   const [excelRows, setExcelRows] = useState(null);
   const [excelLoading, setExcelLoading] = useState(false);
   const [xlsxLib, setXlsxLib] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // Load SheetJS dynamically via CDN
   React.useEffect(() => {
@@ -60,10 +68,10 @@ const SurveyForm = ({
         const worksheet = workbook.Sheets[firstSheetName];
         const rows = xlsxLib.utils.sheet_to_json(worksheet, { header: 1 });
         setExcelRows(rows);
-        alert("Excel data loaded successfully!");
+        showToast("Excel data loaded successfully!");
       } catch (err) {
         console.error("Excel Parsing Error:", err);
-        alert("Failed to parse Excel file. Please use a valid .xlsx or .csv");
+        showToast("Failed to parse Excel file", "error");
       } finally {
         setExcelLoading(false);
       }
@@ -122,10 +130,11 @@ const SurveyForm = ({
             }
             
             setFormData(newForm);
-            alert(`Auto-filled details for UID: ${searchUid} (from Local Excel)`);
+            showToast(`Form auto-filled for UID: ${searchUid}`);
             return;
           } catch (e) {
             console.error("Local mapping error:", e);
+            showToast("Error mapping Excel data", "error");
           }
         }
       }
@@ -216,13 +225,37 @@ const SurveyForm = ({
           />
           <button
             type="button"
-            className="bg-accent text-white py-3 px-6 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white hover:text-accent border-2 border-accent transition-all shadow-md active:shadow-sm"
+            className="bg-accent text-white py-3 px-6 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white hover:text-accent border-2 border-accent transition-all shadow-md active:shadow-sm cursor-pointer"
             onClick={handleManualAutoFill}
           >
             Auto-Fill
           </button>
         </div>
       </div>
+
+      {/* CUSTOM TOAST NOTIFICATION */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, x: 20 }}
+            animate={{ opacity: 1, y: 0, x: 0 }}
+            exit={{ opacity: 0, y: -20, x: 20 }}
+            className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 py-4 px-6 rounded-2xl shadow-2xl border ${
+              toast.type === "error" 
+                ? "bg-red-50 border-red-200 text-red-600" 
+                : "bg-green-50 border-green-200 text-green-600"
+            }`}
+          >
+            <div className={`p-1.5 rounded-full ${toast.type === "error" ? "bg-red-100" : "bg-green-100"}`}>
+              {toast.type === "error" ? <X className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+            </div>
+            <p className="text-sm font-bold tracking-tight">{toast.message}</p>
+            <button onClick={() => setToast(null)} className="ml-2 hover:opacity-70 transition-opacity">
+              <X className="w-4 h-4 opacity-40" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Form Card */}
       <div className="bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.06)] overflow-hidden text-left border border-border-muted">
