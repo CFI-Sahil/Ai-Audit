@@ -250,6 +250,11 @@ OUTPUT FORMAT (JSON ONLY):
             )
             if response:
                 role_map = json.loads(response.choices[0].message.content)
+                # Heuristic Fallback: 
+                # - Segments with '?' or survey-keywords => Surveyor
+                # - Otherwise follow the role of the most similar segment or alternate cautiously
+                survey_keywords = ["accessmind", "survey", "contact", "sms", "phone", "call", "service", "withdraw", "money", "questions", "thank you", "okay", "alright"]
+                
                 s0_role = role_map.get("S0", "Surveyor")
                 s1_role = role_map.get("S1", "Respondent")
                 
@@ -258,15 +263,29 @@ OUTPUT FORMAT (JSON ONLY):
                     if sid in role_map:
                         s["speaker"] = role_map[sid]
                     else:
-                        s["speaker"] = s0_role if idx % 2 == 0 else s1_role
+                        text_lower = s["text"].lower()
+                        # Content-based heuristic
+                        if "?" in text_lower or any(kw in text_lower for kw in survey_keywords):
+                            s["speaker"] = "Surveyor"
+                        else:
+                            # If no clear signal, alternate based on the previous segment
+                            prev_speaker = segments[idx-1]["speaker"] if idx > 0 else "Surveyor"
+                            # If previous was a question, this is likely respondent
+                            if idx > 0 and "?" in segments[idx-1]["text"]:
+                                s["speaker"] = "Respondent"
+                            else:
+                                s["speaker"] = prev_speaker # Assume same person continuing
             else:
                 for idx, s in enumerate(segments):
-                    s["speaker"] = "Surveyor" if idx % 2 == 0 else "Respondent"
+                    text_lower = s["text"].lower()
+                    if "?" in text_lower: s["speaker"] = "Surveyor"
+                    else: s["speaker"] = "Respondent"
             return segments
         except Exception as e:
             print(f"Speaker Identification Error: {e}")
             for idx, s in enumerate(segments):
-                s["speaker"] = "Surveyor" if idx % 2 == 0 else "Respondent"
+                if "?" in s["text"]: s["speaker"] = "Surveyor"
+                else: s["speaker"] = "Respondent"
             return segments
 
     def _clean_transcript(self, text):
