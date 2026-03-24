@@ -82,7 +82,9 @@ const Home = ({
 
         const targetUid = directUid || uid;
 
-        if (targetUid) {
+        // If a manual file is provided, ALWAYS use the standard upload flow
+        // The automated UI flow (/process-uid) should only be used if NO file is uploaded
+        if (targetUid && !file) {
             // Process via UID
             setLoading(true);
             try {
@@ -99,7 +101,7 @@ const Home = ({
             return;
         }
 
-        // Standard Manual Flow
+        // Standard Manual Flow (and Fallback if File is Provided with UID)
         if (!file || !formData.name || !formData.age) return;
 
         setLoading(true);
@@ -111,6 +113,9 @@ const Home = ({
         data.append('location', formData.location);
         data.append('mobile', formData.mobile);
         data.append('audio', file);
+        if (targetUid) {
+            data.append('uid', targetUid);
+        }
 
         try {
             const res = await axios.post(`${API_BASE}/upload-survey`, data);

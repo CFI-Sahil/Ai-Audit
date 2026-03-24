@@ -65,11 +65,12 @@ async def upload_survey(
     location: str = Form(...),
     mobile: str = Form(...),
     audio: UploadFile = File(...),
+    uid: str = Form(None),
     db: Session = Depends(get_db)
 ):
     # Save audio file permanently
-    file_extension = audio.filename.split(".")[-1]
-    saved_filename = f"saved_audio/{uuid.uuid4()}.{file_extension}"
+    file_ext = audio.filename.split(".")[-1]
+    saved_filename = f"saved_audio/{uuid.uuid4()}.{file_ext}"
     
     with open(saved_filename, "wb") as buffer:
         shutil.copyfileobj(audio.file, buffer)
@@ -92,7 +93,7 @@ async def upload_survey(
             print(f"LLM extraction error: {ee}")
             llm_data = None
             
-        # 3. Audit logic
+        # 3. Standard Audit logic
         audit_result = perform_audit(
             transcript, int(age), name, profession, education, location, mobile, 
             segments=segments, audio_path=saved_filename, llm_data=llm_data
@@ -100,10 +101,38 @@ async def upload_survey(
 
         if transcript == "AI Transcription failed.":
             audit_result["is_emergency"] = True
+
+        # 4. Integrate Z-Audit Premium Scanner
+        # We simulate reg_details for the scanner
+        dummy_reg_details = [
+            [name, "NAME"], [age, "AGE"], [profession, "PROFESSION"],
+            [location, "LOCATION"], [mobile, "MOBILE"]
+        ]
         
-        # 3. Save to database
+        try:
+            print(f"DEBUG: Running Z-Audit Scanner for manual upload...")
+            z_analysis = await whisper_service.analyze_z_audit_issues(
+                transcript, 
+                dummy_reg_details, 
+                standard_audit=audit_result
+            )
+            
+            audit_result["z_audit"] = {
+                "uid": uid or "MANUAL",
+                "final_score": z_analysis.get("final_score", 0),
+                "payment_decision": z_analysis.get("payment_decision", "No Payment"),
+                "issues_detected": z_analysis.get("issues_detected", []),
+                "audit_summary": z_analysis.get("audit_summary", ""),
+                "evidence": z_analysis.get("evidence", []),
+                "sentiment": audit_result.get("sentiment"),
+                "status": "Clean" if z_analysis.get("final_score", 0) >= 8 else "Flagged"
+            }
+        except Exception as ze:
+            print(f"Z-Audit Scanner failed: {ze}")
+        
+        # 5. Save to database
         db_survey = Survey(
-            name=name,
+            name=uid if uid else name,
             form_age=age,
             form_profession=profession,
             form_education=education,
