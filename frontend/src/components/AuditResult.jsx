@@ -114,7 +114,7 @@ const AuditRow = ({
         {isRegexFallback && (
           <div className="mt-2">
             <span className="bg-orange-100 text-orange-600 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-              Regex used as Emergency
+              REGEX USED
             </span>
           </div>
         )}
@@ -531,9 +531,18 @@ const AuditResult = ({
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <h2 className="text-3xl font-black text-white uppercase tracking-tighter">
-                Security Audit Report
-              </h2>
+              <div className="flex flex-col gap-2">
+                <h2 className="text-3xl font-black text-white uppercase tracking-tighter">
+                  Security Audit Report
+                </h2>
+                {audit_result.is_emergency && (
+                  <div className="flex items-center">
+                    <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded uppercase tracking-[0.15em] animate-pulse">
+                      REGEX USED
+                    </span>
+                  </div>
+                )}
+              </div>
               <div className="bg-white rounded-xl p-3 shadow-xl">
                 <AlertCircle className="w-8 h-8 text-black" strokeWidth={2.5} />
               </div>

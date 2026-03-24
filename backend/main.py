@@ -97,6 +97,9 @@ async def upload_survey(
             transcript, int(age), name, profession, education, location, mobile, 
             segments=segments, audio_path=saved_filename, llm_data=llm_data
         )
+
+        if transcript == "AI Transcription failed.":
+            audit_result["is_emergency"] = True
         
         # 3. Save to database
         db_survey = Survey(

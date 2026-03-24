@@ -512,4 +512,5 @@ def perform_audit(
         },
         "sentiment":       sentiment,
         "is_regex_fallback": is_regex_fallback,
+        "is_emergency": any(is_regex_fallback.values()),
     }
