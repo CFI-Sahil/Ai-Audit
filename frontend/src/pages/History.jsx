@@ -3,7 +3,7 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trash2, AlertCircle, CheckCircle2 } from "lucide-react";
 
-const API_BASE = 'http://localhost:8005';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8005';
 
 const History = () => {
   const [history, setHistory] = useState([]);

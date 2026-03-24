@@ -18,6 +18,7 @@ from surveyor_logic import calculate_surveyor_payroll
 from dotenv import load_dotenv
 
 load_dotenv()
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8005")
 
 # Persistent Logging
 import logging
@@ -125,7 +126,7 @@ async def upload_survey(
         db.refresh(db_survey)
         
         # Return result with web-accessible audio URL
-        audit_result["audio_url"] = f"http://localhost:8005/audio/{os.path.basename(saved_filename)}"
+        audit_result["audio_url"] = f"{BASE_URL}/audio/{os.path.basename(saved_filename)}"
         
         return {
             "id": db_survey.id,
@@ -397,7 +398,7 @@ def get_surveys(db: Session = Depends(get_db)):
         
         # Generate audio URL
         if s_dict.get("audio_path"):
-            s_dict["audio_url"] = f"http://localhost:8005/audio/{os.path.basename(s_dict['audio_path'])}"
+            s_dict["audio_url"] = f"{BASE_URL}/audio/{os.path.basename(s_dict['audio_path'])}"
         
         # Consistent mapping for frontend
         if s_dict.get("full_result_json"):
