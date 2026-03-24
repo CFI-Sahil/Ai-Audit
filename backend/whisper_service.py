@@ -222,10 +222,12 @@ class WhisperService:
         
         prompt = f"""You are a speaker role identifier.
 In this survey:
-- The FIRST unique person who speaks is ALWAYS the SURVEYOR.
-- The SECOND unique person who speaks is ALWAYS the RESPONDENT.
+- The SURVEYOR is the interviewer (usually starts the conversation, introduces themselves or the company like 'AccessMind', and asks questions).
+- The RESPONDENT is the person being interviewed (answers questions about name, age, etc.).
 
-Analyze these 100 segments and map the speaker IDs (S0, S1, etc.) to [Surveyor] or [Respondent].
+IMPORTANT: Sometimes the Surveyor speaks multiple times at the start (e.g. introducing themselves, then asking a question). 
+
+Analyze these segments and map the speaker IDs (S0, S1, etc.) to [Surveyor] or [Respondent].
 
 INPUT SEGMENTS:
 {sample_text}
@@ -233,7 +235,8 @@ INPUT SEGMENTS:
 OUTPUT FORMAT (JSON ONLY):
 {{
   "S0": "Surveyor",
-  "S1": "Respondent",
+  "S1": "Surveyor",
+  "S2": "Respondent",
   ... 
 }}
 """
@@ -280,7 +283,9 @@ OUTPUT FORMAT (JSON ONLY):
         
         await asyncio.sleep(2)
         prompt = f"""Extract user details ONLY from segments labeled [Respondent]. 
-Ignore anything the [Surveyor] says.
+Ignore anything the [Surveyor] says (like their own name 'Vansh Narayan Patil' or company 'AccessMind').
+
+Focus on the Respondent's answers to questions like "What is your name?", "How old are you?", etc.
 
 Return JSON:
 {{
