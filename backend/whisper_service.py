@@ -5,6 +5,7 @@ import math
 import asyncio
 import json
 import uuid
+import sys
 from typing import List, Optional, Dict, Any
 from groq import AsyncGroq
 from pydub import AudioSegment
@@ -16,21 +17,27 @@ load_dotenv()
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 backend_dir = os.path.dirname(os.path.abspath(__file__))
-ffmpeg_bin = backend_dir
 
-if not os.path.exists(os.path.join(ffmpeg_bin, "ffmpeg.exe")):
-    alt_ffmpeg_bin = os.path.join(os.path.dirname(backend_dir), "ffmpeg", "bin")
-    if os.path.exists(os.path.join(alt_ffmpeg_bin, "ffmpeg.exe")):
-        ffmpeg_bin = alt_ffmpeg_bin
+# Cross-platform ffmpeg detection
+if sys.platform == "win32":
+    ffmpeg_bin = backend_dir
+    if not os.path.exists(os.path.join(ffmpeg_bin, "ffmpeg.exe")):
+        alt_ffmpeg_bin = os.path.join(os.path.dirname(backend_dir), "ffmpeg", "bin")
+        if os.path.exists(os.path.join(alt_ffmpeg_bin, "ffmpeg.exe")):
+            ffmpeg_bin = alt_ffmpeg_bin
+            
+    if ffmpeg_bin not in os.environ["PATH"]:
+        os.environ["PATH"] += os.pathsep + ffmpeg_bin
 
-if ffmpeg_bin not in os.environ["PATH"]:
-    os.environ["PATH"] += os.pathsep + ffmpeg_bin
-
-try:
-    AudioSegment.converter = os.path.join(ffmpeg_bin, "ffmpeg.exe")
-    AudioSegment.ffprobe = os.path.join(ffmpeg_bin, "ffprobe.exe")
-except Exception as e:
-    print(f"DEBUG: Error setting Pydub converter: {e}")
+    try:
+        AudioSegment.converter = os.path.join(ffmpeg_bin, "ffmpeg.exe")
+        AudioSegment.ffprobe = os.path.join(ffmpeg_bin, "ffprobe.exe")
+    except Exception as e:
+        print(f"DEBUG: Error setting Pydub converter (Windows): {e}")
+else:
+    # On Linux (Render), we assume ffmpeg is already in the system PATH
+    # No need to set AudioSegment.converter explicitly if it's already in PATH
+    pass
 
 class WhisperService:
     def __init__(self, model_size="whisper-large-v3"):
