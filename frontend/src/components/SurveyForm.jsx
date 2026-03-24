@@ -237,10 +237,10 @@ const SurveyForm = ({
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20, x: 20 }}
+            initial={{ opacity: 0, y: 20, x: -20 }}
             animate={{ opacity: 1, y: 0, x: 0 }}
-            exit={{ opacity: 0, y: -20, x: 20 }}
-            className={`fixed top-6 right-6 z-[9999] flex items-center gap-3 py-4 px-6 rounded-2xl shadow-2xl border ${
+            exit={{ opacity: 0, y: 20, x: -20 }}
+            className={`fixed bottom-6 left-6 z-[9999] flex items-center gap-3 py-4 px-6 rounded-2xl shadow-2xl border ${
               toast.type === "error" 
                 ? "bg-red-50 border-red-200 text-red-600" 
                 : "bg-green-50 border-green-200 text-green-600"
