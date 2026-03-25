@@ -508,7 +508,7 @@ const SurveyForm = ({
                 <p className="text-xs text-slate-500 font-medium tracking-tight">
                   {file ? "File ready for audit" : "MP3, WAV, or AAC (Max 50MB)"}
                 </p>
-                <div className="mt-5 border-2 border-accent rounded-lg px-6 py-2 inline-block text-sm font-black text-text-dark bg-white hover:bg-accent hover:text-white transition-all">
+                <div className="mt-5 border-2 border-accent rounded-lg px-6 py-2 inline-block text-sm font-black text-text-dark bg-white hover:bg-accent hover:text-white transition-all cursor-pointer">
                   Browse Files
                 </div>
               </label>

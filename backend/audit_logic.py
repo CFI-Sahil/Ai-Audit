@@ -112,6 +112,9 @@ def extract_district(text: str):
     patterns = [
         # Catch Resides in [X] or Village [X] or District [X]
         r'(?:resides? in|lives? in|staying in|residing in|village is|district is|from|place is|location is|at)\s+([A-Z][a-z\s,]{3,50}?(?:\bDistrict\b|\bTaluka\b|\bVillage\b|$))',
+        # Catch "Village: Shittur" or "Name of the village. Shittur"
+        r'\bvillage\s*(?:name|is)?\s*[:\-]?\s*([A-Z][a-z]+)',
+        r'\bplace\s*(?:is)?\s*[:\-]?\s*([A-Z][a-z]+)',
         # Catch multi-word capitalized sequences
         r'(?:resides? in|lives? in|staying in|residing in|at)\s+([A-Z][a-z]+(?:,\s*[A-Z][a-z]+)*(?:\s+[A-Z][a-z]+)*)',
     ]
@@ -209,6 +212,22 @@ def names_match(form_name: str, detected_name: str) -> bool:
     form_parts  = set(form_name.lower().split())
     detect_parts = set(detected_name.lower().split())
     return bool(form_parts & detect_parts)
+
+def locations_match(form_loc: str, detected_loc: str) -> bool:
+    if not form_loc or not detected_loc:
+        return False
+    f_parts = set(form_loc.lower().split())
+    d_parts = set(detected_loc.lower().split())
+    
+    # Common words to ignore in matching
+    ignore = {"village", "district", "taluka", "state", "india", "at", "in", "from"}
+    f_names = f_parts - ignore
+    d_names = d_parts - ignore
+    
+    if not f_names or not d_names:
+        return bool(f_parts & d_parts)
+        
+    return bool(f_names & d_names)
 
 
 # ---------------------------------------------------------------------------
@@ -343,6 +362,7 @@ def perform_audit(
     segments: List[Dict] = None,
     audio_path: Optional[str] = None,
     llm_data: Optional[Dict[str, Any]] = None,
+    gemini_timestamps: Optional[Dict[str, Any]] = None,
 ):
     question_timestamps: Dict[str, str] = {
         k: "Not Detected"
@@ -352,7 +372,20 @@ def perform_audit(
 
     if segments:
         for field in question_timestamps:
-            question_timestamps[field] = find_question_timestamp(transcript, field, segments)
+            # Overwrite with Gemini timestamps if available
+            if gemini_timestamps and field in gemini_timestamps:
+                ts = gemini_timestamps[field]
+                if isinstance(ts, dict) and "start" in ts:
+                    question_timestamps[field] = ts["start"]
+                    # We'll also store the end time for the frontend to use
+                    if "end" in ts:
+                        if "extra_info" not in question_timestamps: # Wait, dict doesn't support this
+                            pass 
+            else:
+                question_timestamps[field] = find_question_timestamp(transcript, field, segments)
+
+    # Store full gemini data for frontend
+    gemini_data = gemini_timestamps or {}
 
     # ---- Value extraction (LLM preferred, regex fallback) ------------------
 
@@ -462,11 +495,7 @@ def perform_audit(
 
     # Location: ≥ 4-char token already guaranteed by extract_district
     if detected_location:
-        f_loc = form_location.lower().strip()
-        d_loc = detected_location.lower().strip()
-        location_status = "Match" if (
-            f_loc == d_loc or (len(f_loc) > 3 and (f_loc in d_loc or d_loc in f_loc))
-        ) else "Mismatch"
+        location_status = "Match" if locations_match(form_location, detected_location) else "Mismatch"
     else:
         location_status = "Inconclusive"
 
@@ -530,6 +559,7 @@ def perform_audit(
         "timestamps": {
             "questions": question_timestamps,
             "detected":  detected_timestamps,
+            "gemini":    gemini_data,
         },
         "sentiment":       sentiment,
         "is_regex_fallback": is_regex_fallback,

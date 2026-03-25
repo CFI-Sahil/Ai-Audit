@@ -33,7 +33,20 @@ class Survey(Base):
     emotion = Column(String, nullable=True)
     meaning = Column(String, nullable=True)
     interpretation = Column(String, nullable=True)
+    surveyor_name = Column(String, nullable=True) # NEW: Track who did the survey
     full_result_json = Column(String, nullable=True) # Full audit result as JSON
+    uid = Column(String, index=True, nullable=True) # Unique ID for de-duplication
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+class SalarySlipRecord(Base):
+    __tablename__ = "salary_slips"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    surveyor_name = Column(String, index=True)
+    month_year = Column(String) # e.g. "March 2026"
+    net_salary = Column(Integer)
+    total_surveys = Column(Integer)
+    full_slip_json = Column(String) # JSON of the entire payroll object
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
 Base.metadata.create_all(bind=engine)

@@ -10,7 +10,7 @@ import pandas as pd
 from pydantic import BaseModel
 from typing import List, Any, Optional
 
-from database import SessionLocal, Survey
+from database import SessionLocal, Survey, SalarySlipRecord
 from whisper_service import whisper_service
 import re
 from audit_logic import perform_audit
@@ -20,6 +20,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8005")
+
+def clean_surveyor_name(name: str) -> str:
+    if not name or name == "N/A":
+        return "N/A"
+    
+    # Remove common noise
+    noise = ["ACCESSMIND INDIA", "ACCESS MIND", "AXIS BANK", "AXIS", "ACCESSMIND", " - "]
+    name_upper = name.upper()
+    for n in noise:
+        name_upper = name_upper.replace(n, "")
+    
+    # Handle common typos/variants observed in screenshot
+    if "VANJ" in name_upper and "PATIL" in name_upper:
+        return "VANSH NARAYAN PATIL"
+    if "VANSH" in name_upper and "PATIL" in name_upper:
+        return "VANSH NARAYAN PATIL"
+    
+    return name_upper.strip()
 
 # Persistent Logging
 import logging
@@ -57,6 +75,22 @@ def get_db():
     finally:
         db.close()
 
+    db.close()
+
+class SalarySlipSaveRequest(BaseModel):
+    surveyor_name: str
+    month_year: str
+    net_salary: int
+    total_surveys: int
+    full_slip_json: dict
+
+class SalarySlipSaveRequest(BaseModel):
+    surveyor_name: str
+    month_year: str
+    net_salary: int
+    total_surveys: int
+    full_slip_json: dict
+
 @app.post("/upload-survey")
 async def upload_survey(
     name: Optional[str] = Form(None),
@@ -93,6 +127,13 @@ async def upload_survey(
         except Exception as ee:
             print(f"LLM extraction error: {ee}")
             llm_data = None
+
+        # 2b. Get precise timestamps from Gemini 2.0
+        try:
+            gemini_timestamps = await whisper_service.get_gemini_timestamps(saved_filename)
+        except Exception as ge:
+            print(f"Gemini timestamp error: {ge}")
+            gemini_timestamps = None
             
         # Step 3: Standard Audit logic
         audit_result = perform_audit(
@@ -103,7 +144,8 @@ async def upload_survey(
             form_education=education,
             form_location=location,
             form_mobile=mobile, 
-            segments=segments, audio_path=saved_filename, llm_data=llm_data
+            segments=segments, audio_path=saved_filename, llm_data=llm_data,
+            gemini_timestamps=gemini_timestamps
         )
 
         if transcript == "AI Transcription failed.":
@@ -138,8 +180,20 @@ async def upload_survey(
             print(f"Z-Audit Scanner failed: {ze}")
         
         # 5. Save to database
+        surveyor_name = "N/A"
+        if llm_data and isinstance(llm_data, dict):
+            surveyor_name = llm_data.get("surveyor") or llm_data.get("SURVEYOR") or "N/A"
+        
+        surveyor_name = clean_surveyor_name(surveyor_name)
+
+        # DE-DUPLICATION: Delete existing records with same UID
+        if uid:
+            db.query(Survey).filter(Survey.uid == uid).delete()
+
         db_survey = Survey(
             name=uid if uid else name,
+            surveyor_name=surveyor_name,
+            uid=uid,
             form_age=age,
             form_profession=profession,
             form_education=education,
@@ -283,27 +337,13 @@ async def process_uid(request: ProcessUidRequest, db: Session = Depends(get_db))
     """Automated backend processing without manual file upload."""
     uid = request.uid
     
-    # Check if already processed to avoid re-running expense transcription
-    existing = db.query(Survey).filter(
-        (Survey.full_result_json.like(f'%"uid": "{uid}"%')) | (Survey.name == uid)
-    ).order_by(Survey.id.desc()).first()
-    
     # FORCED RE-PROCESS for UIDs to fix logic/formatting
     if uid in ["111379", "108417"]:
         existing = None
 
-    if existing:
-        print(f"DEBUG: Found existing audit for UID {uid} (ID: {existing.id}). Returning cached result.")
-        try:
-            full_result = json.loads(existing.full_result_json)
-            return {
-                "id": existing.id,
-                "transcript": existing.transcript,
-                "audit_result": full_result
-            }
-        except Exception:
-            pass # Re-process if JSON fails
-
+    # NO MORE CACHING if we want to "update the same card"
+    # We allow re-running. If existing, we'll replace it later.
+    
     try:
         print(f"DEBUG: Starting audit for UID {uid}")
         result = await run_automated_audit(uid, media_base_path="..")
@@ -377,18 +417,38 @@ async def process_uid(request: ProcessUidRequest, db: Session = Depends(get_db))
         q_timestamps = timestamps.get("questions", {})
         if not isinstance(q_timestamps, dict): q_timestamps = {}
 
-        sentiment = result.get("sentiment", {})
-        if not isinstance(sentiment, dict): sentiment = {}
+        # 4. Extract Surveyor Name from Audit Result
+        surveyor_name = "N/A"
+        try:
+            # Check Excel source first (most reliable for automated)
+            search_path = "../data_with_json.xlsx"
+            if not os.path.exists(search_path): search_path = "data_with_json.xlsx"
+            if os.path.exists(search_path):
+                tmp_df = pd.read_excel(search_path, header=None)
+                for i in range(len(tmp_df)):
+                    if str(tmp_df.iloc[i, 1]).split('.')[0] == str(uid):
+                        row_json = json.loads(str(tmp_df.iloc[i, 2]))
+                        surveyor_name = row_json.get("surveyor") or "N/A"
+                        break
+        except Exception as se: 
+            print(f"DEBUG: Surveyor extraction failed: {se}")
+
+        surveyor_name = clean_surveyor_name(surveyor_name)
+
+        # DE-DUPLICATION: Delete existing records with same UID
+        db.query(Survey).filter(Survey.uid == uid).delete()
 
         db_survey = Survey(
             name=str(det_vals.get("name", uid)),
-            form_age=0,
+            surveyor_name=surveyor_name,
+            uid=uid,
+            form_age="0",
             form_profession="N/A",
             form_education="N/A",
             form_location="N/A",
             form_mobile="N/A",
             transcript=str(result.get("transcript", "Transcript unavailable")),
-            detected_age=det_vals.get("age", 0),
+            detected_age=str(det_vals.get("age", "0")),
             detected_name=str(det_vals.get("name", "N/A")),
             detected_profession=str(det_vals.get("profession", "N/A")),
             detected_education=str(det_vals.get("education", "N/A")),
@@ -487,30 +547,103 @@ def delete_survey(survey_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Survey deleted successfully"}
 
-@app.get("/surveyors")
-def get_surveyors():
-    """List unique surveyors from the Excel file."""
-    excel_path = "../data_with_json.xlsx"
-    if not os.path.exists(excel_path):
-        excel_path = "data_with_json.xlsx"
-    if not os.path.exists(excel_path):
-        return []
-    
+@app.post("/save-salary-slip")
+def save_salary_slip(req: SalarySlipSaveRequest, db: Session = Depends(get_db)):
+    """Archive a generated salary slip."""
     try:
-        df = pd.read_excel(excel_path, header=None)
-        surveyors_count = {}
-        for i in range(len(df)):
-            try:
-                row_json = json.loads(str(df.iloc[i, 2]))
-                s_name = row_json.get("surveyor")
-                if s_name:
-                    surveyors_count[s_name] = surveyors_count.get(s_name, 0) + 1
-            except: continue
-        
-        return [{"name": name, "count": count} for name, count in surveyors_count.items()]
+        new_record = SalarySlipRecord(
+            surveyor_name=req.surveyor_name,
+            month_year=req.month_year,
+            net_salary=req.net_salary,
+            total_surveys=req.total_surveys,
+            full_slip_json=json.dumps(req.full_slip_json)
+        )
+        db.add(new_record)
+        db.commit()
+        db.refresh(new_record)
+        return {"id": new_record.id, "message": "Salary slip saved to history"}
     except Exception as e:
-        logger.error(f"Error listing surveyors: {e}")
-        return []
+        logger.error(f"Error saving salary slip: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/payroll-history")
+def get_payroll_history(db: Session = Depends(get_db)):
+    """Fetch all saved salary slips."""
+    records = db.query(SalarySlipRecord).order_by(SalarySlipRecord.timestamp.desc()).all()
+    results = []
+    for r in records:
+        r_dict = {c.name: getattr(r, c.name) for c in r.__table__.columns}
+        if r_dict.get("full_slip_json"):
+            try:
+                r_dict["full_slip_json"] = json.loads(r_dict["full_slip_json"])
+            except: pass
+        results.append(r_dict)
+    return results
+
+@app.get("/surveyor-payroll/{surveyor_name}")
+def get_surveyor_payroll(surveyor_name: str, db: Session = Depends(get_db)):
+    """Fetch all surveys for a surveyor and generate their payroll slip."""
+    try:
+        surveys = db.query(Survey).filter(Survey.surveyor_name == surveyor_name).all()
+        if not surveys:
+            # Return an empty/default slip if no audits found in DB yet
+            return calculate_surveyor_payroll(surveyor_name, [])
+        
+        # Prepare data for calculation
+        surveys_data = []
+        for s in surveys:
+            try:
+                full_json = json.loads(s.full_result_json) if s.full_result_json else {}
+            except:
+                full_json = {}
+            
+            surveys_data.append({
+                "uid": s.name,
+                "audit": full_json,
+                "raw": {} # Metadata if we had it
+            })
+            
+        return calculate_surveyor_payroll(surveyor_name, surveys_data)
+    except Exception as e:
+        logger.error(f"Error generating payroll for {surveyor_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/surveyors")
+def get_surveyors(db: Session = Depends(get_db)):
+    """List unique surveyors from BOTH the Excel file and the DB history."""
+    surveyors_count = {}
+
+    # 1. Check DB first (most relevant for recent work)
+    try:
+        db_results = db.query(Survey.surveyor_name).filter(Survey.surveyor_name != "N/A").all()
+        for row in db_results:
+            name = clean_surveyor_name(row[0])
+            if name and name != "N/A":
+                surveyors_count[name] = surveyors_count.get(name, 0) + 1
+    except Exception as de:
+        print(f"DEBUG: DB Surveyor fetch failed (table might be empty or migrating): {de}")
+
+    # 2. Add from Excel if not already there
+    excel_path = "../data_with_json.xlsx"
+    if not os.path.exists(excel_path): excel_path = "data_with_json.xlsx"
+    if os.path.exists(excel_path):
+        try:
+            df = pd.read_excel(excel_path, header=None)
+            for i in range(len(df)):
+                try:
+                    row_json = json.loads(str(df.iloc[i, 2]))
+                    s_name = row_json.get("surveyor")
+                    if s_name:
+                        # For Excel, we only count them if they are not already in DB (or we aggregate them)
+                        if s_name not in surveyors_count:
+                             surveyors_count[s_name] = surveyors_count.get(s_name, 0) + 1
+                        else:
+                             # Just use DB count for now as it's more accurate for real-time audits
+                             pass
+                except: continue
+        except: pass
+    
+    return [{"name": name, "count": count} for name, count in surveyors_count.items()]
 
 class SurveyorSyncItem(BaseModel):
     uid: str
@@ -523,6 +656,7 @@ class SurveyorSyncRequest(BaseModel):
 @app.post("/surveyor-payroll")
 def post_surveyor_payroll(req: SurveyorSyncRequest, db: Session = Depends(get_db)):
     """Generate salary slip data using data provided by the frontend."""
+    req.surveyor_name = clean_surveyor_name(req.surveyor_name)
     logger.info(f"--- SYNC START: {req.surveyor_name} ({len(req.surveys)} events) ---")
     surveys_for_payroll = []
     

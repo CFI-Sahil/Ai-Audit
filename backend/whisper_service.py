@@ -10,11 +10,16 @@ from typing import List, Optional, Dict, Any
 from groq import AsyncGroq
 from pydub import AudioSegment
 from dotenv import load_dotenv
+import google.generativeai as genai
 
 # Load .env file
 load_dotenv()
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 backend_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -310,10 +315,9 @@ OUTPUT FORMAT (JSON ONLY):
             return {"name": None, "age": None, "education": None, "profession": None, "location": None, "mobile": None}
         
         await asyncio.sleep(2)
-        prompt = f"""Extract user details ONLY from segments labeled [Respondent]. 
-Ignore anything the [Surveyor] says (like their own name 'Vansh Narayan Patil' or company 'AccessMind').
-
-Focus on the Respondent's answers to questions like "What is your name?", "How old are you?", etc.
+        prompt = f"""Identify the [Surveyor]'s name/ID from their intro (e.g. "I am Vansh...").
+IGNORE company names as the surveyor name: Axis, Axis Bank, AccessMind, Bank.
+If they say "I am calling from Axis Bank, my name is Maroti Gavhalkar", the name is "Maroti Gavhalkar".
 
 Return JSON:
 {{
@@ -321,8 +325,9 @@ Return JSON:
   "age": "Number",
   "education": "Level",
   "profession": "Job",
-  "location": "District/State",
-  "mobile": "10 digits"
+  "location": "Village, Town, or District",
+  "mobile": "10 digits",
+  "surveyor": "ID - (NAME) or just NAME"
 }}
 
 Transcript:
@@ -383,6 +388,7 @@ Scoring Rules (MANDATORY):
 3. If 3+ fields are "Mismatch": Final Score 0-3.
 4. "Agricultural Worker" and "Farmer" are a MATCH.
 5. If the respondent sounds like they are being coached/mimicking: Score < 4.
+6. Extract the Surveyor's name and/or ID from the transcript (the person asking the questions). If they mention an ID, include it like "ID - (NAME)". Otherwise, just provide the NAME.
 
 Return JSON with exactly these keys:
 {{
@@ -390,7 +396,8 @@ Return JSON with exactly these keys:
   "payment_decision": "Full Payment" | "Partial Payment" | "No Payment",
   "issues_detected": ["Issue Label"],
   "evidence": [{{ "issue": "Label", "detail": "Detailed explanation" }}],
-  "audit_summary": "Paragraph summary"
+  "audit_summary": "Paragraph summary",
+  "surveyor": "ID - (NAME) or just NAME"
 }}
 """
         try:
@@ -407,5 +414,79 @@ Return JSON with exactly these keys:
         except Exception as e:
             print(f"Audit Error: {e}")
             return {"final_score": 0, "payment_decision": "Error", "issues_detected": ["AI Error"]}
+
+    async def get_gemini_timestamps(self, audio_path: str):
+        """Use Gemini 2.0 Multimodal to get precise timestamps for question-answer pairs."""
+        if not GEMINI_API_KEY:
+            print("WARNING: GEMINI_API_KEY not found. Skipping Gemini timestamps.")
+            return {}
+
+        if not os.path.exists(audio_path):
+            return {}
+
+        try:
+            print(f"DEBUG: Uploading '{os.path.basename(audio_path)}' to Gemini...")
+            # Upload to Gemini (Multimodal)
+            g_file = await asyncio.to_thread(genai.upload_file, path=audio_path)
+            
+            # Wait for file to be active
+            while g_file.state.name == "PROCESSING":
+                await asyncio.sleep(2)
+                g_file = await asyncio.to_thread(genai.get_file, g_file.name)
+            
+            # Initialize model with strong multilingual system instructions
+            system_instruction = """You are an expert multilingual survey analyst. 
+You are fluent in English, Hindi, Marathi, Tamil, Telugu, and Gujarati. 
+Your task is to precisely identify timestamps for specific survey questions and answers in audio recordings.
+Surveyors often switch between languages (code-switching). 
+You must listen for synonyms of the target fields in all these languages."""
+            
+            model = genai.GenerativeModel(
+                "gemini-2.0-flash",
+                system_instruction=system_instruction
+            )
+
+            prompt = """Analyze this survey audio interview.
+Look for the EXACT time segments (start and end) for these fields:
+
+- name: (e.g., "Naav sangha", "Aapka naam", "Peru emiti", "Un peyar enn?")
+- age: (e.g., "Umar", "Vayasu", "Vayasenn?")
+- mobile: (e.g., "Phone number", "Mobile", "Number?")
+- location: (e.g., "Kute rahtat", "Address", "Ooru", "Idam?")
+- profession: (e.g., "Kay karta", "Work", "Udyogam", "Vela?")
+- education: (e.g., "Kiti shikla", "Study", "Chaduvu", "Padipu?")
+
+For each field, provide a 'start' and 'end' timestamp in M:SS format.
+The segment MUST include the Surveyor asking and the Respondent's full answer.
+
+RESPONSE FORMAT (JSON ONLY):
+{
+  "name": {"start": "0:12", "end": "0:25"},
+  "age": {"start": "1:05", "end": "1:15"},
+  ...
+}
+
+If a field is missing, omit it from the JSON.
+"""
+            print("DEBUG: Requesting timestamps from Multilingual Gemini 2.0...")
+            response = await asyncio.to_thread(
+                model.generate_content,
+                [g_file, prompt],
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "temperature": 0.0
+                }
+            )
+            
+            # Cleanup Gemini file
+            await asyncio.to_thread(genai.delete_file, g_file.name)
+            
+            if response and response.text:
+                return json.loads(response.text)
+            return {}
+            
+        except Exception as e:
+            print(f"Gemini Timestamp Error: {e}")
+            return {}
 
 whisper_service = WhisperService()

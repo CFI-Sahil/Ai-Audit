@@ -150,6 +150,13 @@ async def run_automated_audit(uid: str, media_base_path: str = ".."):
     except Exception as e:
         print(f"Standard LLM extraction failed: {e}")
 
+    print(f"DEBUG: Requesting precise timestamps from Gemini 2.0...")
+    gemini_timestamps = None
+    try:
+        gemini_timestamps = await whisper_service.get_gemini_timestamps(audio_full_path)
+    except Exception as ge:
+        print(f"Gemini timestamp extraction failed: {ge}")
+
     print(f"DEBUG: Running Standard Audit logic...")
     standard_audit = perform_audit(
         transcript=transcript,
@@ -161,7 +168,8 @@ async def run_automated_audit(uid: str, media_base_path: str = ".."):
         form_mobile=form_mobile,
         segments=segments,
         audio_path=audio_full_path,
-        llm_data=llm_data
+        llm_data=llm_data,
+        gemini_timestamps=gemini_timestamps
     )
 
     # Run Z-Audit specific scanner

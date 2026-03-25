@@ -11,3 +11,4 @@ openpyxl
 opensmile
 transformers
 requirements-parser
+google-generativeai

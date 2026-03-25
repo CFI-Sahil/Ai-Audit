@@ -128,7 +128,7 @@ const AuditRow = ({
   );
 };
 
-const ClipCard = ({ label, time, isAvailable = true, audioUrl }) => {
+const ClipCard = ({ label, time, endTime, isAvailable = true, audioUrl }) => {
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [volume, setVolume] = React.useState(1); // 0 to 1
@@ -147,6 +147,7 @@ const ClipCard = ({ label, time, isAvailable = true, audioUrl }) => {
   };
 
   const startTimeInSec = React.useMemo(() => parseTime(time), [time]);
+  const endTimeInSec = React.useMemo(() => parseTime(endTime), [endTime]);
 
   React.useEffect(() => {
     return () => {
@@ -158,7 +159,19 @@ const ClipCard = ({ label, time, isAvailable = true, audioUrl }) => {
     };
   }, []);
 
-  const snippetDuration = 4; // Play exactly 4 seconds of audio strictly capturing the prompt
+  const snippetDuration = React.useMemo(() => {
+    if (endTimeInSec && startTimeInSec && endTimeInSec > startTimeInSec) {
+      return endTimeInSec - startTimeInSec;
+    }
+    return 4; // Default fallback
+  }, [startTimeInSec, endTimeInSec]);
+
+  const changeSpeed = (speed, e) => {
+    e.stopPropagation();
+    setPlaybackRate(speed);
+    setShowSpeedMenu(false);
+    if (audioRef.current) audioRef.current.playbackRate = speed;
+  };
 
   const togglePlay = (e) => {
     e.stopPropagation();
@@ -387,6 +400,8 @@ const AuditResult = ({
     sentiment,
     status: overallStatus,
   } = audit_result;
+
+  const gemini = timestamps.gemini || {};
 
   const playSnippet = (timeStr) => {
     if (!audioUrl || timeStr === "Not Detected") return;
@@ -743,35 +758,45 @@ const AuditResult = ({
         <div className="grid grid-cols-2 gap-6">
           <ClipCard
             label="Name"
-            time={timestamps.questions.name}
+            time={gemini.name?.start || timestamps.questions.name}
+            endTime={gemini.name?.end}
             audioUrl={audioUrl}
+            isAvailable={!!(gemini.name?.start || timestamps.questions.name !== "Not Detected")}
           />
           <ClipCard
             label="Age"
-            time={timestamps.questions.age}
+            time={gemini.age?.start || timestamps.questions.age}
+            endTime={gemini.age?.end}
             audioUrl={audioUrl}
+            isAvailable={!!(gemini.age?.start || timestamps.questions.age !== "Not Detected")}
           />
           <ClipCard
             label="Location"
-            time={timestamps.questions.location}
+            time={gemini.location?.start || timestamps.questions.location}
+            endTime={gemini.location?.end}
             audioUrl={audioUrl}
+            isAvailable={!!(gemini.location?.start || timestamps.questions.location !== "Not Detected")}
           />
           <ClipCard
             label="Profession"
-            time={timestamps.questions.profession}
+            time={gemini.profession?.start || timestamps.questions.profession}
+            endTime={gemini.profession?.end}
             audioUrl={audioUrl}
+            isAvailable={!!(gemini.profession?.start || timestamps.questions.profession !== "Not Detected")}
           />
           <ClipCard
             label="Education"
-            time={timestamps.questions.education}
-            isAvailable={timestamps.questions.education !== "Not Detected"}
+            time={gemini.education?.start || timestamps.questions.education}
+            endTime={gemini.education?.end}
             audioUrl={audioUrl}
+            isAvailable={!!(gemini.education?.start || timestamps.questions.education !== "Not Detected")}
           />
           <ClipCard
             label="Mobile"
-            time={timestamps.questions.mobile}
-            isAvailable={timestamps.questions.mobile !== "Not Detected"}
+            time={gemini.mobile?.start || timestamps.questions.mobile}
+            endTime={gemini.mobile?.end}
             audioUrl={audioUrl}
+            isAvailable={!!(gemini.mobile?.start || timestamps.questions.mobile !== "Not Detected")}
           />
         </div>
       </div>

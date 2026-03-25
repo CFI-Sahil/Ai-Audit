@@ -12,7 +12,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
-const SalarySlip = ({ data }) => {
+const SalarySlip = ({ data, onSave }) => {
   if (!data) return null;
 
   const { 
@@ -39,10 +39,20 @@ const SalarySlip = ({ data }) => {
             <User className="w-4 h-4 text-[#FF4D4D]" /> {surveyor_name}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-1">Net Payable</p>
-          <div className="text-4xl font-black text-[#4ADE80]">
-            ₹{net_salary.toLocaleString()}
+        <div className="flex items-center gap-6">
+          {onSave && (
+            <button 
+              onClick={onSave}
+              className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/20 cursor-pointer"
+            >
+              Save to History
+            </button>
+          )}
+          <div className="text-right">
+            <p className="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-1">Net Payable</p>
+            <div className="text-4xl font-black text-[#4ADE80]">
+              ₹{net_salary.toLocaleString()}
+            </div>
           </div>
         </div>
       </div>
