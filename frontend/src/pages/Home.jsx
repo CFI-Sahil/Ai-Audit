@@ -74,64 +74,73 @@ const Home = ({
                     return;
                 }
 
-                console.log(`Scanning all ${rows.length} rows...`);
-                console.table(rows.slice(0, 10));
-
+                console.log(`Starting deep scan of ${rows.length} rows...`);
+                
                 rows.forEach((row, rowIndex) => {
-                    let name = "";
-                    let uid = "";
+                    let bestName = "";
+                    let bestUid = "";
+                    let nameConfidence = 0; // 0: none, 1: text, 2: multi-word, 3: JSON-verified
 
-                    // Multi-Column Scanner (Check first 6 columns)
-                    for (let i = 0; i < Math.min(row.length, 6); i++) {
+                    // Deep Scanner (15 Columns)
+                    for (let i = 0; i < Math.min(row.length, 15); i++) {
                         const cell = String(row[i] || "").trim();
                         if (!cell) continue;
 
-                        // Priority 1: JSON block
+                        // Check for JSON first (Highest Confidence)
                         if (cell.includes("{") && cell.includes("}")) {
                             try {
                                 const jsonMatch = cell.match(/\{.*\}/);
                                 if (jsonMatch) {
                                     const rowData = JSON.parse(jsonMatch[0]);
-                                    const extractedName = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor;
-                                    const extractedUid = rowData.UID || rowData.uid || rowData.Uid;
-                                    if (extractedName && !name) name = extractedName;
-                                    if (extractedUid && !uid) uid = String(extractedUid).split('.')[0];
+                                    const rawName = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor;
+                                    const rawUid = rowData.UID || rowData.uid || rowData.Uid || rowData.id1;
+                                    
+                                    if (rawName) {
+                                        let clean = rawName;
+                                        if (clean.includes(" - ")) clean = clean.split(" - ").pop();
+                                        clean = clean.replace(/[()"]/g, "").trim();
+                                        if (clean.length >= 2) {
+                                            bestName = clean;
+                                            nameConfidence = 3;
+                                        }
+                                    }
+                                    if (rawUid && !bestUid) bestUid = String(rawUid).split('.')[0];
                                 }
                             } catch (e) {}
                         }
 
-                        // Priority 2: Universal ID (any numeric cell > 0)
-                        if (!uid && cell.match(/^\d+$/) && cell !== "0") {
-                            uid = cell.split('.')[0];
+                        // ID Check (If not already found in JSON)
+                        if (!bestUid && cell.match(/^\d{3,10}$/)) {
+                            bestUid = cell.split('.')[0];
                         }
 
-                        // Priority 3: Name (Non-numeric, not a header label)
-                        if (!name && cell.length >= 2 && !cell.match(/^\d+$/)) {
-                            const lowCell = cell.toLowerCase();
-                            const isNoise = ["name", "surveyor", "id", "audit", "surveory", "survey"].includes(lowCell);
-                            if (!isNoise && !cell.includes("{") && !cell.includes("[")) {
-                                name = cell;
+                        // Text Check (Only if confidence is low)
+                        if (nameConfidence < 3 && cell.length >= 3 && !cell.match(/^\d+$/)) {
+                            const low = cell.toLowerCase();
+                            const isNoise = ["name", "surveyor", "id", "audit", "surveory", "survey", "not provided", "undefined"].includes(low);
+                            const isLocation = ["village", "mumbai", "pune", "nagpur", "wardha", "dist", "taluka"].some(loc => low.includes(loc));
+                            
+                            if (!isNoise && !isLocation && !cell.includes("{")) {
+                                let currentConf = cell.includes(" ") ? 2 : 1;
+                                if (currentConf > nameConfidence) {
+                                    bestName = cell.replace(/[()"]/g, "").trim();
+                                    nameConfidence = currentConf;
+                                }
                             }
                         }
                     }
 
-                    // Strict cleaning
-                    if (name) {
-                        if (name.includes(" - ")) name = name.split(" - ").pop();
-                        name = name.replace(/[()"]/g, "").trim();
-                        if (name.length < 2 || name.length > 60 || name.includes('{"')) {
-                            name = "";
-                        }
-                    }
-
-                    if (name) {
-                        if (!surveyorMap[name]) {
-                            surveyorMap[name] = { name, uid, count: 0, surveys: [] };
-                        }
-                        surveyorMap[name].count++;
+                    if (bestName && nameConfidence > 0) {
+                        console.log(`Row ${rowIndex + 1}: Identified [${bestName}] (Confidence: ${nameConfidence})`);
                         
+                        if (!surveyorMap[bestName]) {
+                            surveyorMap[bestName] = { name: bestName, uid: bestUid || "Unknown", count: 0, surveys: [] };
+                        }
+                        surveyorMap[bestName].count++;
+                        
+                        // Find the raw JSON for performance data
                         let rawObj = {};
-                        for (let i = 0; i < Math.min(row.length, 6); i++) {
+                        for (let i = 0; i < Math.min(row.length, 15); i++) {
                             const cell = String(row[i] || "");
                             if (cell.includes("{") && cell.includes("}")) {
                                 try {
@@ -140,7 +149,7 @@ const Home = ({
                                 } catch (e) {}
                             }
                         }
-                        surveyorMap[name].surveys.push({ uid: uid || "Unknown", raw: rawObj });
+                        surveyorMap[bestName].surveys.push({ uid: bestUid || "Unknown", raw: rawObj });
                     }
                 });
 
