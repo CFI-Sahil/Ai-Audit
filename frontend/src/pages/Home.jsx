@@ -74,7 +74,23 @@ const Home = ({
                     return;
                 }
 
-                rows.slice(1).forEach((row) => {
+                // Auto-detect Header
+                let startIdx = 1; // Default to skipping first row
+                const firstRow = rows[0] || [];
+                const firstRowStr = firstRow.join(" ").toLowerCase();
+                // If the first row looks like a data row (contains a JSON block or a number-like ID)
+                const hasJson = firstRowStr.includes("{") && firstRowStr.includes("}");
+                const hasID = firstRow.some(c => String(c).match(/^\d+$/));
+                const isHeader = firstRowStr.includes("name") || firstRowStr.includes("surveyor") || firstRowStr.includes("audit") || firstRowStr.includes("id");
+
+                if (!isHeader && (hasJson || hasID)) {
+                    startIdx = 0; // First row is likely data
+                }
+
+                console.log(`Starting scan from row index: ${startIdx}`);
+                console.table(rows.slice(0, 5)); // Debugging help for developers
+
+                rows.slice(startIdx).forEach((row) => {
                     let name = "";
                     let uid = "";
 
@@ -97,8 +113,8 @@ const Home = ({
                             } catch (e) {}
                         }
 
-                        // Priority 2: Numeric cell that looks like a UID
-                        if (!uid && cell.match(/^\d{5,}$/)) {
+                        // Priority 2: Numeric cell that looks like a UID (1-10 digits)
+                        if (!uid && cell.match(/^\d{1,10}$/)) {
                             uid = cell.split('.')[0];
                         }
 
