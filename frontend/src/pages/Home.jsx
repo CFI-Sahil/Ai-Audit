@@ -49,7 +49,11 @@ const Home = ({
 
     const handlePayrollExcelUpload = (e) => {
         const uploadedFile = e.target.files[0];
-        if (!uploadedFile || !xlsxLib) return;
+        if (!uploadedFile) return;
+        if (!xlsxLib) {
+            alert("Excel library still loading... please try again in a second.");
+            return;
+        }
 
         setPayrollExcelLoading(true);
         const reader = new FileReader();
@@ -379,7 +383,7 @@ const Home = ({
                                             </span>
                                         </div>
                                         <h3 className="text-2xl font-black uppercase tracking-tighter mb-2 group-hover:text-blue-600 transition-colors">
-                                            {s.uid ? `${s.uid} - ` : ''}({s.name})
+                                            {s.uid ? `${s.uid} - ` : ''}{s.name.replace(/^\(|\)$/g, '').replace(/^\(|\)$/g, '')}
                                         </h3>
                                         <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                                             <span>Generate Salary Slip</span>
