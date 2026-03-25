@@ -75,47 +75,59 @@ const Home = ({
                 }
 
                 rows.slice(1).forEach((row) => {
-                    const uid = String(row[0] || "").trim();
                     let name = "";
-                    
-                    const colB = String(row[1] || "").trim();
-                    const colC = String(row[2] || "").trim();
+                    let uid = "";
 
-                    // Try to find JSON block in Column C first
-                    if (colC.includes("{") && colC.includes("}")) {
-                        try {
-                            const jsonMatch = colC.match(/\{.*\}/);
-                            if (jsonMatch) {
-                                const rowData = JSON.parse(jsonMatch[0]);
-                                name = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor || "";
+                    // Multi-Column Scanner (Check first 6 columns for potential data)
+                    for (let i = 0; i < Math.min(row.length, 6); i++) {
+                        const cell = String(row[i] || "").trim();
+                        if (!cell) continue;
+
+                        // Priority 1: JSON block containing SURVEYOR key
+                        if (cell.includes("{") && cell.includes("}")) {
+                            try {
+                                const jsonMatch = cell.match(/\{.*\}/);
+                                if (jsonMatch) {
+                                    const rowData = JSON.parse(jsonMatch[0]);
+                                    const extracted = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor;
+                                    if (extracted) {
+                                        name = extracted;
+                                        break; // Found primary name source
+                                    }
+                                }
+                            } catch (e) {}
+                        }
+
+                        // Priority 2: First non-numeric cell that looks like a name
+                        if (!name && cell.length > 3 && !cell.match(/^\d+$/) && cell !== "Not Provided" && cell !== "undefined") {
+                            // Only use if doesn't contain noise symbols like "{"
+                            if (!cell.includes("{") && !cell.includes("[")) {
+                                name = cell;
                             }
-                        } catch (e) {}
-                    }
-
-                    // Fallback to Column B if Column C didn't yield a name
-                    if (!name || name === "Not Provided" || name === "undefined") {
-                        if (colB && !colB.match(/^\d+$/)) {
-                            name = colB;
+                        }
+                        
+                        // Try to find a UID in any column that is just numeric
+                        if (!uid && cell.match(/^\d{5,}$/)) {
+                            uid = cell;
                         }
                     }
 
-                    // Final cleanup: remove UID prefixes, parentheses, and quotes
+                    // Strict cleaning: isolate just the name from formats like "123 - (NAME)"
                     if (name) {
-                        if (name.includes('{"') || name.includes('":')) {
-                            name = ""; // Still looks like JSON, discard
-                        } else {
-                            if (name.includes(" - ")) {
-                                name = name.split(" - ").pop();
-                            }
-                            name = name.replace(/[()"]/g, "").trim();
-                            // If it contains dates or multiple commas, it's likely bad data
-                            if (name.includes(",") || name.includes(":") || name.length < 3) {
-                                name = "";
-                            }
+                        // Extract part after ' - ' if exists
+                        if (name.includes(" - ")) {
+                            name = name.split(" - ").pop();
+                        }
+                        // Remove all parentheses and double quotes
+                        name = name.replace(/[()"]/g, "").trim();
+                        
+                        // Final Validation: Reject if clearly junk or too long
+                        if (name.length < 3 || name.length > 60 || name.includes('{"')) {
+                            name = "";
                         }
                     }
 
-                    if (name && name.length > 2) {
+                    if (name) {
                         if (!surveyorMap[name]) {
                             surveyorMap[name] = { name, uid, count: 0 };
                         }
