@@ -59,12 +59,12 @@ def get_db():
 
 @app.post("/upload-survey")
 async def upload_survey(
-    name: str = Form(...),
-    age: str = Form(...),
-    profession: str = Form(...),
-    education: str = Form(...),
-    location: str = Form(...),
-    mobile: str = Form(...),
+    name: str = Form(None),
+    age: str = Form(None),
+    profession: str = Form(None),
+    education: str = Form(None),
+    location: str = Form(None),
+    mobile: str = Form(None),
     audio: UploadFile = File(...),
     uid: str = Form(None),
     db: Session = Depends(get_db)

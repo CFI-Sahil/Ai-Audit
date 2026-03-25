@@ -11,7 +11,7 @@ import SalarySlip from '../components/SalarySlip';
 import { Users, FileText, ChevronRight, FileSpreadsheet, FileUp, Loader2, CheckCircle2, X } from 'lucide-react';
 import { useRef } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 const Home = ({
     loading,
@@ -306,12 +306,12 @@ const Home = ({
 
         setLoading(true);
         const data = new FormData();
-        data.append('name', formData.name);
-        data.append('age', formData.age);
-        data.append('profession', formData.profession);
-        data.append('education', formData.education);
-        data.append('location', formData.location);
-        data.append('mobile', formData.mobile);
+        data.append('name', formData.name || "");
+        data.append('age', formData.age || "");
+        data.append('profession', formData.profession || "");
+        data.append('education', formData.education || "");
+        data.append('location', formData.location || "");
+        data.append('mobile', formData.mobile || "");
         data.append('audio', file);
         if (targetUid) {
             data.append('uid', targetUid);
@@ -330,7 +330,8 @@ const Home = ({
             }
 
         } catch (err) {
-            alert("Error uploading survey. Make sure backend is running.");
+            const errorMsg = err.response?.data?.detail || err.response?.data || "Error uploading survey. Make sure backend is running.";
+            alert(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
         } finally {
             setLoading(false);
         }
