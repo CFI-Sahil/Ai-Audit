@@ -8,7 +8,7 @@ import uuid
 import json
 import pandas as pd
 from pydantic import BaseModel
-from typing import List, Any
+from typing import List, Any, Optional
 
 from database import SessionLocal, Survey
 from whisper_service import whisper_service
@@ -59,12 +59,12 @@ def get_db():
 
 @app.post("/upload-survey")
 async def upload_survey(
-    name: str = Form(None),
-    age: str = Form(None),
-    profession: str = Form(None),
-    education: str = Form(None),
-    location: str = Form(None),
-    mobile: str = Form(None),
+    name: Optional[str] = Form(None),
+    age: Optional[str] = Form(None),
+    profession: Optional[str] = Form(None),
+    education: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
+    mobile: Optional[str] = Form(None),
     audio: UploadFile = File(...),
     uid: str = Form(None),
     db: Session = Depends(get_db)

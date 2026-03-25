@@ -23,6 +23,7 @@ const Home = ({
     file,
     setFile
 }) => {
+    console.log("DEBUG: Home.jsx Version [v1.0.1] - Port: 8000, FormData: Robust");
     const [uid, setUid] = useState('');
     const [activeTab, setActiveTab] = useState('audit');
     const [surveyors, setSurveyors] = useState([]);
@@ -316,6 +317,13 @@ const Home = ({
         if (targetUid) {
             data.append('uid', targetUid);
         }
+
+        console.log("--- UPLOAD DEBUG START ---");
+        console.log("API URL:", `${API_BASE}/upload-survey`);
+        for (let [key, value] of data.entries()) {
+            console.log(`Field [${key}]:`, value);
+        }
+        console.log("--- UPLOAD DEBUG END ---");
 
         try {
             const res = await axios.post(`${API_BASE}/upload-survey`, data);
