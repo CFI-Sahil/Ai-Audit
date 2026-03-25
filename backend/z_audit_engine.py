@@ -26,7 +26,7 @@ async def run_automated_audit(uid: str, media_base_path: str = ".."):
     # Step 1: Load Data from Excel
     excel_path = "../data_with_json.xlsx"
     if not os.path.exists(excel_path):
-        return {"error": f"Excel file not found at {excel_path}"}
+        return {"error": "Automated data source not found. Please upload the survey audio manually."}
     
     try:
         df = pd.read_excel(excel_path, header=None)
@@ -40,7 +40,7 @@ async def run_automated_audit(uid: str, media_base_path: str = ".."):
                 break
         
         if row is None:
-            return {"error": f"UID {uid} not found in data source."}
+            return {"error": f"UID {uid} not found in automated records. Please upload audio manually."}
         
         data = json.loads(row[2])
         audio_answers = data.get("audioanswers", [])

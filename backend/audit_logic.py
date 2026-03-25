@@ -212,24 +212,30 @@ def names_match(form_name: str, detected_name: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# GLOBAL MODELS
+# GLOBAL MODELS - Lean Startup Mode
 # ---------------------------------------------------------------------------
 
-try:
-    emotion_pipeline = pipeline(
-        "text-classification",
-        model="j-hartmann/emotion-english-distilroberta-base",
-        top_k=1,
-    )
-    smile_model = opensmile.Smile(
-        feature_set=opensmile.FeatureSet.emobase,
-        feature_level=opensmile.FeatureLevel.Functionals,
-    )
-except Exception as e:
-    print(f"Model loading failed: {e}")
-    emotion_pipeline = None
-    smile_model = None
+emotion_pipeline = None
+smile_model = None
 
+# Only attempt to load if explicitly enabled or in a capable environment
+# For now, we favor server availability over non-essential sentiment analysis
+if os.getenv("ENABLE_HEAVY_MODELS", "false").lower() == "true":
+    try:
+        print("Loading heavy sentiment models...")
+        emotion_pipeline = pipeline(
+            "text-classification",
+            model="j-hartmann/emotion-english-distilroberta-base",
+            top_k=1,
+        )
+        smile_model = opensmile.Smile(
+            feature_set=opensmile.FeatureSet.emobase,
+            feature_level=opensmile.FeatureLevel.Functionals,
+        )
+    except Exception as e:
+        print(f"Non-essential model loading skipped: {e}")
+else:
+    print("Heavy models disabled for faster startup. Set ENABLE_HEAVY_MODELS=true to enable.")
 
 def analyze_sentiment(text: str, audio_path: Optional[str] = None):
     vocal_emotion  = "NEUTRAL"
