@@ -131,16 +131,15 @@ const Home = ({
                     if (!name && uid) name = `Surveyor #${uid}`;
 
                     if (name) {
-                        // Use Name + UID as a composite key to prevent merging different people with same name
-                        const key = `${name}_${uid || 'no-id'}`;
-                        if (!surveyorMap[key]) {
+                        // Group by name only (as per latest request) to aggregate multiple surveys into one slip
+                        if (!surveyorMap[name]) {
                             console.log(`Row ${rowIndex + 1}: Found New Record [${name}] (ID: ${uid})`);
-                            surveyorMap[key] = { name, uid: uid || "Unknown", count: 0, surveys: [] };
+                            surveyorMap[name] = { name, uid: uid || "Unknown", count: 0, surveys: [] };
                         } else {
                             console.log(`Row ${rowIndex + 1}: Adding Survey to [${name}]`);
                         }
                         
-                        surveyorMap[key].count++;
+                        surveyorMap[name].count++;
                         
                         let rawObj = {};
                         for (let i = 0; i < Math.min(row.length, 15); i++) {
@@ -152,7 +151,7 @@ const Home = ({
                                 } catch (e) {}
                             }
                         }
-                        surveyorMap[key].surveys.push({ uid: uid || "Unknown", raw: rawObj });
+                        surveyorMap[name].surveys.push({ uid: uid || "Unknown", raw: rawObj });
                     }
                 });
 
