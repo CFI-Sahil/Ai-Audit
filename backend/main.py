@@ -8,6 +8,7 @@ import uuid
 import json
 import pandas as pd
 from pydantic import BaseModel
+from typing import List, Any
 
 from database import SessionLocal, Survey
 from whisper_service import whisper_service
