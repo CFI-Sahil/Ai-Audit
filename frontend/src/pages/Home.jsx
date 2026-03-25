@@ -89,40 +89,34 @@ const Home = ({
                                 const jsonMatch = cell.match(/\{.*\}/);
                                 if (jsonMatch) {
                                     const rowData = JSON.parse(jsonMatch[0]);
-                                    const extracted = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor;
-                                    if (extracted) {
-                                        name = extracted;
-                                        break; // Found primary name source
-                                    }
+                                    const extractedName = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor;
+                                    const extractedUid = rowData.UID || rowData.uid || rowData.Uid;
+                                    if (extractedName && !name) name = extractedName;
+                                    if (extractedUid && !uid) uid = String(extractedUid).split('.')[0];
                                 }
                             } catch (e) {}
                         }
 
-                        // Priority 2: First non-numeric cell that looks like a name
-                        if (!name && cell.length > 3 && !cell.match(/^\d+$/) && cell !== "Not Provided" && cell !== "undefined") {
-                            // Only use if doesn't contain noise symbols like "{"
+                        // Priority 2: Numeric cell that looks like a UID
+                        if (!uid && cell.match(/^\d{5,}$/)) {
+                            uid = cell.split('.')[0];
+                        }
+
+                        // Priority 3: Non-numeric cell that looks like a name
+                        if (!name && cell.length >= 2 && !cell.match(/^\d+$/) && cell !== "Not Provided" && cell !== "undefined") {
                             if (!cell.includes("{") && !cell.includes("[")) {
                                 name = cell;
                             }
-                        }
-                        
-                        // Try to find a UID in any column that is just numeric
-                        if (!uid && cell.match(/^\d{5,}$/)) {
-                            uid = cell;
                         }
                     }
 
                     // Strict cleaning: isolate just the name from formats like "123 - (NAME)"
                     if (name) {
-                        // Extract part after ' - ' if exists
-                        if (name.includes(" - ")) {
-                            name = name.split(" - ").pop();
-                        }
-                        // Remove all parentheses and double quotes
+                        if (name.includes(" - ")) name = name.split(" - ").pop();
                         name = name.replace(/[()"]/g, "").trim();
                         
-                        // Final Validation: Reject if clearly junk or too long
-                        if (name.length < 3 || name.length > 60 || name.includes('{"')) {
+                        // Reject if clearly junk or too long
+                        if (name.length < 2 || name.length > 60 || name.includes('{"')) {
                             name = "";
                         }
                     }
@@ -133,8 +127,6 @@ const Home = ({
                         }
                         surveyorMap[name].count++;
                         
-                        // Store the raw event for this survey
-                        // Find the original raw JSON string if it exists in the row
                         let rawObj = {};
                         for (let i = 0; i < Math.min(row.length, 6); i++) {
                             const cell = String(row[i] || "");
@@ -145,15 +137,16 @@ const Home = ({
                                 } catch (e) {}
                             }
                         }
-                        
-                        surveyorMap[name].surveys.push({ uid, raw: rawObj });
+                        surveyorMap[name].surveys.push({ uid: uid || "Unknown", raw: rawObj });
                     }
                 });
 
                 const finalData = Object.values(surveyorMap);
-                console.log("Extracted Excel Data with events:", finalData);
+                console.log("Digital Scanner Summary:", finalData);
                 if (finalData.length === 0) {
                     alert("No valid surveyor data found in this file format.");
+                } else {
+                    // Optional: You could add a small notification here if you wanted
                 }
                 setPayrollExcelRows(finalData);
             } catch (err) {
