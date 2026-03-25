@@ -74,6 +74,7 @@ const Home = ({
                     return;
                 }
 
+                console.log("RAW ROWS DEBUG (First 5):", rows.slice(0, 5));
                 console.log(`Starting deep scan of ${rows.length} rows...`);
                 
                 rows.forEach((row, rowIndex) => {
@@ -109,7 +110,7 @@ const Home = ({
                             } catch (e) {}
                         }
 
-                        // ID Check (If not already found in JSON)
+                        // ID Check (Any numeric cell 3-10 digits)
                         if (!bestUid && cell.match(/^\d{3,10}$/)) {
                             bestUid = cell.split('.')[0];
                         }
@@ -130,10 +131,17 @@ const Home = ({
                         }
                     }
 
+                    // SAFETY NET: If no name found but ID exists, use ID as name
+                    if (!bestName && bestUid) {
+                        bestName = `Surveyor #${bestUid}`;
+                        nameConfidence = 1;
+                    }
+
                     if (bestName && nameConfidence > 0) {
-                        console.log(`Row ${rowIndex + 1}: Identified [${bestName}] (Confidence: ${nameConfidence})`);
+                        const isNew = !surveyorMap[bestName];
+                        console.log(`Row ${rowIndex + 1}: ${isNew ? 'Identified' : 'Merging into'} [${bestName}] (Confidence: ${nameConfidence})`);
                         
-                        if (!surveyorMap[bestName]) {
+                        if (isNew) {
                             surveyorMap[bestName] = { name: bestName, uid: bestUid || "Unknown", count: 0, surveys: [] };
                         }
                         surveyorMap[bestName].count++;
