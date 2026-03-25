@@ -147,17 +147,18 @@ const SurveyForm = ({
   // Validation Logic
   const validateName = (name) => name.trim().length >= 2;
   const validateAge = (age) => {
-    const val = age.toString();
-    return val.length >= 2 && val.length <= 3 && !isNaN(val);
+    const val = String(age || "").trim();
+    return val.length >= 2 && val.length <= 10;
   };
   const validateProfession = (prof) => prof.trim().length >= 4;
   const validateEducation = (edu) => edu.trim().length >= 2;
   const validateLocation = (loc) => loc.trim().length >= 2;
   const validateMobile = (mob) => {
-    const val = mob.toString().replace(/\s/g, "");
-    // User rule: starts with 7 is verified, 1-6 is invalid.
-    // We'll allow 7, 8, 9 as they are typical Indian mobile starts.
-    return val.length === 10 && /^[789]/.test(val);
+    const val = String(mob || "").trim();
+    if (!val) return false;
+    const isNumeric = /^\d+$/.test(val);
+    if (isNumeric) return val.length === 10;
+    return val.length > 0;
   };
 
   const activeUid = uidInput.trim() || uid;
@@ -315,14 +316,13 @@ const SurveyForm = ({
                   className={`w-full py-3 px-4 border-[1.5px] rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)] ${formData.age && !validateAge(formData.age) ? "border-red-500" : "border-border-muted"}`}
                   value={formData.age}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    setFormData({ ...formData, age: val });
+                    setFormData({ ...formData, age: e.target.value });
                   }}
                   required={!activeUid}
                 />
                 {formData.age && !validateAge(formData.age) && (
                   <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1">
-                    Age must be 2-3 digits
+                    Age must be at least 2 characters
                   </p>
                 )}
               </div>
@@ -425,15 +425,13 @@ const SurveyForm = ({
                   className={`w-full py-3 px-4 border-[1.5px] rounded-xl text-text-dark transition-all focus:outline-none focus:border-accent focus:shadow-[0_0_0_2px_rgba(0,0,0,0.1)] ${formData.mobile && !validateMobile(formData.mobile) ? "border-red-500" : "border-border-muted"}`}
                   value={formData.mobile}
                   onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                    setFormData({ ...formData, mobile: val });
+                    setFormData({ ...formData, mobile: e.target.value });
                   }}
                   required={!activeUid}
-                  maxLength={10}
                 />
                 {formData.mobile && !validateMobile(formData.mobile) && (
                   <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1 leading-tight">
-                    10 digits starting with 7, 8, or 9
+                    10 digits if numeric, or any other characters
                   </p>
                 )}
               </div>

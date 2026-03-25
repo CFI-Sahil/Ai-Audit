@@ -59,7 +59,7 @@ def get_db():
 @app.post("/upload-survey")
 async def upload_survey(
     name: str = Form(...),
-    age: int = Form(...),
+    age: str = Form(...),
     profession: str = Form(...),
     education: str = Form(...),
     location: str = Form(...),
@@ -93,9 +93,15 @@ async def upload_survey(
             print(f"LLM extraction error: {ee}")
             llm_data = None
             
-        # 3. Standard Audit logic
+        # Step 3: Standard Audit logic
         audit_result = perform_audit(
-            transcript, int(age), name, profession, education, location, mobile, 
+            transcript=transcript,
+            form_age=age,
+            form_name=name,
+            form_profession=profession,
+            form_education=education,
+            form_location=location,
+            form_mobile=mobile, 
             segments=segments, audio_path=saved_filename, llm_data=llm_data
         )
 

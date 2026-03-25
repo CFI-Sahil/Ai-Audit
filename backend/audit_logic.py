@@ -406,13 +406,28 @@ def perform_audit(
         if "10" in s or "ssc" in s:     return "10th"
         return s
 
-    # Age: must be an integer and match exactly
-    if detected_age is None:
-        age_status = "Inconclusive"
-    elif detected_age == int(form_age):
-        age_status = "Match"
-    else:
-        age_status = "Mismatch"
+    # Age comparison logic
+    try:
+        f_age_int = int(str(form_age).strip())
+        d_age_int = int(str(detected_age).strip()) if detected_age is not None else None
+        
+        if d_age_int is None:
+            age_status = "Inconclusive"
+        elif d_age_int == f_age_int:
+            age_status = "Match"
+        else:
+            age_status = "Mismatch"
+    except (ValueError, TypeError):
+        # Fallback for alphanumeric age
+        f_age_str = str(form_age).strip().lower()
+        d_age_str = str(detected_age).strip().lower() if detected_age is not None else ""
+        
+        if not d_age_str:
+            age_status = "Inconclusive"
+        elif f_age_str == d_age_str:
+            age_status = "Match"
+        else:
+            age_status = "Mismatch"
 
     name_status = (
         "Inconclusive" if not detected_name
