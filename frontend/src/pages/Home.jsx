@@ -78,24 +78,30 @@ const Home = ({
                     const uid = String(row[0] || "").trim();
                     let name = "";
                     
-                    // Attempt name extraction from JSON (Column C) or fallback to Name column (if exists at Column B)
                     try {
-                        const jsonStr = String(row[2] || "{}");
+                        let jsonStr = String(row[2] || "{}").trim();
+                        // Fix common Excel/JSON formatting issues
                         if (jsonStr.startsWith("{")) {
                             const rowData = JSON.parse(jsonStr);
-                            name = rowData.surveyor;
+                            // Support various key cases
+                            name = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor || "";
                         }
                     } catch (e) {}
 
-                    // Fallback to Column B if Column C doesn't have surveyor JSON
-                    if (!name || name === "Not Provided") {
+                    // Fallback to Column B
+                    if (!name || name === "Not Provided" || name === "undefined") {
                         const possibleName = String(row[1] || "").trim();
                         if (possibleName && !possibleName.match(/^\d+$/)) {
                             name = possibleName;
                         }
                     }
 
-                    if (name && name !== "Not Provided" && name !== "undefined") {
+                    // Clean up names like "(UID - (NAME))"
+                    if (name) {
+                        name = name.split(' - ').pop().replace(/^\(|\)$/g, '').replace(/^\(|\)$/g, '').trim();
+                    }
+
+                    if (name && name !== "Not Provided" && name !== "undefined" && name.length > 1) {
                         if (!surveyorMap[name]) {
                             surveyorMap[name] = { name, uid, count: 0 };
                         }
@@ -390,35 +396,11 @@ const Home = ({
                     )}
 
                     {!selectedSurveyor && !isBulkView ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {(payrollExcelRows || []).map((s, idx) => (
-                                <motion.div
-                                    key={idx}
-                                    whileHover={{ y: -8, scale: 1.02 }}
-                                    onClick={() => handleSurveyorClick(s.name)}
-                                    className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-2xl transition-all cursor-pointer group relative overflow-hidden"
-                                >
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-[5rem] -mr-16 -mt-16 group-hover:bg-blue-600 transition-colors duration-500" />
-                                    
-                                    <div className="relative z-10">
-                                        <div className="flex justify-between items-start mb-8">
-                                            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                <Users className="w-8 h-8 text-black" />
-                                            </div>
-                                            <span className="bg-black text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-                                                {s.count} Surveys
-                                            </span>
-                                        </div>
-                                        <h3 className="text-2xl font-black uppercase tracking-tighter mb-2 group-hover:text-blue-600 transition-colors">
-                                            {s.uid ? `${s.uid} - ` : ''}{s.name.replace(/^\(|\)$/g, '').replace(/^\(|\)$/g, '')}
-                                        </h3>
-                                        <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                            <span>Generate Salary Slip</span>
-                                            <ChevronRight className="w-4 h-4 text-[#FF4D4D] group-hover:translate-x-1 transition-transform" />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ))}
+                        <div className="flex flex-col items-center justify-center p-20 bg-gray-50/50 rounded-[3rem] border border-dashed border-gray-200">
+                            <Users className="w-16 h-16 text-gray-200 mb-6" />
+                            <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
+                                {payrollExcelRows ? "Ready to generate" : "Please upload a surveyor file to begin"}
+                            </p>
                         </div>
                     ) : isBulkView ? (
                         <div className="space-y-12 pb-20">
