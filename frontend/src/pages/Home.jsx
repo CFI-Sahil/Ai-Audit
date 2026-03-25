@@ -74,32 +74,19 @@ const Home = ({
                     return;
                 }
 
-                // Auto-detect Header
-                let startIdx = 1; // Default to skipping first row
-                const firstRow = rows[0] || [];
-                const firstRowStr = firstRow.join(" ").toLowerCase();
-                // If the first row looks like a data row (contains a JSON block or a number-like ID)
-                const hasJson = firstRowStr.includes("{") && firstRowStr.includes("}");
-                const hasID = firstRow.some(c => String(c).match(/^\d+$/));
-                const isHeader = firstRowStr.includes("name") || firstRowStr.includes("surveyor") || firstRowStr.includes("audit") || firstRowStr.includes("id");
+                console.log(`Scanning all ${rows.length} rows...`);
+                console.table(rows.slice(0, 10));
 
-                if (!isHeader && (hasJson || hasID)) {
-                    startIdx = 0; // First row is likely data
-                }
-
-                console.log(`Starting scan from row index: ${startIdx}`);
-                console.table(rows.slice(0, 5)); // Debugging help for developers
-
-                rows.slice(startIdx).forEach((row) => {
+                rows.forEach((row, rowIndex) => {
                     let name = "";
                     let uid = "";
 
-                    // Multi-Column Scanner (Check first 6 columns for potential data)
+                    // Multi-Column Scanner (Check first 6 columns)
                     for (let i = 0; i < Math.min(row.length, 6); i++) {
                         const cell = String(row[i] || "").trim();
                         if (!cell) continue;
 
-                        // Priority 1: JSON block containing SURVEYOR key
+                        // Priority 1: JSON block
                         if (cell.includes("{") && cell.includes("}")) {
                             try {
                                 const jsonMatch = cell.match(/\{.*\}/);
@@ -113,25 +100,25 @@ const Home = ({
                             } catch (e) {}
                         }
 
-                        // Priority 2: Numeric cell that looks like a UID (1-10 digits)
-                        if (!uid && cell.match(/^\d{1,10}$/)) {
+                        // Priority 2: Universal ID (any numeric cell > 0)
+                        if (!uid && cell.match(/^\d+$/) && cell !== "0") {
                             uid = cell.split('.')[0];
                         }
 
-                        // Priority 3: Non-numeric cell that looks like a name
-                        if (!name && cell.length >= 2 && !cell.match(/^\d+$/) && cell !== "Not Provided" && cell !== "undefined") {
-                            if (!cell.includes("{") && !cell.includes("[")) {
+                        // Priority 3: Name (Non-numeric, not a header label)
+                        if (!name && cell.length >= 2 && !cell.match(/^\d+$/)) {
+                            const lowCell = cell.toLowerCase();
+                            const isNoise = ["name", "surveyor", "id", "audit", "surveory", "survey"].includes(lowCell);
+                            if (!isNoise && !cell.includes("{") && !cell.includes("[")) {
                                 name = cell;
                             }
                         }
                     }
 
-                    // Strict cleaning: isolate just the name from formats like "123 - (NAME)"
+                    // Strict cleaning
                     if (name) {
                         if (name.includes(" - ")) name = name.split(" - ").pop();
                         name = name.replace(/[()"]/g, "").trim();
-                        
-                        // Reject if clearly junk or too long
                         if (name.length < 2 || name.length > 60 || name.includes('{"')) {
                             name = "";
                         }
