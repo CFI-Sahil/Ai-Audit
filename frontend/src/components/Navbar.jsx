@@ -9,9 +9,8 @@ const Navbar = () => {
       <div className="w-[80vw] max-w-[1600px] px-6 flex justify-between items-center h-16">
         {/* Logo Section */}
         <Link to="/" className="flex items-center gap-3 group cursor-pointer">
-          <div className="border-2 border-accent p-1.5 rounded-lg flex items-center justify-center text-accent transition-transform group-hover:scale-105">
-            <BarChart className="w-5 h-5 fill-accent opacity-20" />
-            <BarChart className="w-5 h-5 absolute" />
+          <div className="w-14 h-14 rounded-lg overflow-hidden flex items-center justify-center transition-transform group-hover:scale-105">
+            <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
           <span className="font-extrabold text-xl text-text-dark tracking-tight">
             AI Audit System
