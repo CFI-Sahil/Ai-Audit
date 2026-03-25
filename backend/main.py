@@ -511,15 +511,49 @@ def get_surveyors():
         logger.error(f"Error listing surveyors: {e}")
         return []
 
-@app.get("/surveyor-payroll/{surveyor_name}")
-def get_surveyor_payroll(surveyor_name: str, db: Session = Depends(get_db)):
-    """Generate salary slip data for a specific surveyor."""
-    excel_path = "../data_with_json.xlsx"
-    if not os.path.exists(excel_path):
-        excel_path = "data_with_json.xlsx"
-        
+class SurveyorSyncItem(BaseModel):
+    uid: str
+    raw: Any # This will be the parsed JSON object from the Excel cell
+
+class SurveyorSyncRequest(BaseModel):
+    surveyor_name: str
+    surveys: List[SurveyorSyncItem]
+
+@app.post("/surveyor-payroll")
+def post_surveyor_payroll(req: SurveyorSyncRequest, db: Session = Depends(get_db)):
+    """Generate salary slip data using data provided by the frontend."""
     surveys_for_payroll = []
     
+    for item in req.surveys:
+        uid = item.uid
+        # Try to find audited result in DB using the UID
+        db_survey = db.query(Survey).filter(Survey.full_result_json.like(f'%"uid": "{uid}"%')).first()
+        audit_data = {}
+        if db_survey:
+            try:
+                audit_data = json.loads(db_survey.full_result_json)
+            except: pass
+        
+        surveys_for_payroll.append({
+            "uid": uid,
+            "audit": audit_data,
+            "raw": item.raw
+        })
+            
+    payroll = calculate_surveyor_payroll(req.surveyor_name, surveys_for_payroll)
+    return payroll
+
+@app.get("/surveyor-payroll/{surveyor_name}")
+def get_surveyor_payroll_legacy(surveyor_name: str, db: Session = Depends(get_db)):
+    """Legacy GET version (deprecated but kept for compatibility)."""
+    # ... logic stays same ...
+    excel_path = "data_with_json.xlsx"
+    if not os.path.exists(excel_path):
+        excel_path = "../data_with_json.xlsx"
+    if not os.path.exists(excel_path):
+        return {"error": "Source file not found"}
+        
+    surveys_for_payroll = []
     try:
         df = pd.read_excel(excel_path, header=None)
         for i in range(len(df)):
@@ -527,22 +561,13 @@ def get_surveyor_payroll(surveyor_name: str, db: Session = Depends(get_db)):
                 row_json = json.loads(str(df.iloc[i, 2]))
                 if row_json.get("surveyor") == surveyor_name:
                     uid = str(df.iloc[i, 1]).split('.')[0]
-                    # Try to find audited result in DB
                     db_survey = db.query(Survey).filter(Survey.full_result_json.like(f'%"uid": "{uid}"%')).first()
-                    audit_data = {}
-                    if db_survey:
-                        audit_data = json.loads(db_survey.full_result_json)
-                    
-                    surveys_for_payroll.append({
-                        "uid": uid,
-                        "audit": audit_data,
-                        "raw": row_json
-                    })
+                    audit_data = json.loads(db_survey.full_result_json) if db_survey else {}
+                    surveys_for_payroll.append({"uid": uid, "audit": audit_data, "raw": row_json})
             except: continue
-            
-        payroll = calculate_surveyor_payroll(surveyor_name, surveys_for_payroll)
-        return payroll
-    except Exception as e:
+        return calculate_surveyor_payroll(surveyor_name, surveys_for_payroll)
+    except:
+        raise HTTPException(status_code=500, detail="Calculation failed")
         logger.error(f"Error calculating payroll: {e}")
         raise HTTPException(status_code=500, detail=str(e))
         

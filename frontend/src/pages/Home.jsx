@@ -129,14 +129,29 @@ const Home = ({
 
                     if (name) {
                         if (!surveyorMap[name]) {
-                            surveyorMap[name] = { name, uid, count: 0 };
+                            surveyorMap[name] = { name, uid, count: 0, surveys: [] };
                         }
                         surveyorMap[name].count++;
+                        
+                        // Store the raw event for this survey
+                        // Find the original raw JSON string if it exists in the row
+                        let rawObj = {};
+                        for (let i = 0; i < Math.min(row.length, 6); i++) {
+                            const cell = String(row[i] || "");
+                            if (cell.includes("{") && cell.includes("}")) {
+                                try {
+                                    const match = cell.match(/\{.*\}/);
+                                    if (match) rawObj = JSON.parse(match[0]);
+                                } catch (e) {}
+                            }
+                        }
+                        
+                        surveyorMap[name].surveys.push({ uid, raw: rawObj });
                     }
                 });
 
                 const finalData = Object.values(surveyorMap);
-                console.log("Extracted Excel Data:", finalData);
+                console.log("Extracted Excel Data with events:", finalData);
                 if (finalData.length === 0) {
                     alert("No valid surveyor data found in this file format.");
                 }
@@ -159,18 +174,20 @@ const Home = ({
         setBulkProgress({ current: 0, total: targetList.length });
 
         try {
-            // Process in parallel for speed, but with individual oversight
+            // Process in parallel with new POST sync endpoint
             const promises = targetList.map((s, idx) => 
-                axios.get(`${API_BASE}/surveyor-payroll/${encodeURIComponent(s.name)}`, {
-                    timeout: 15000 // 15s timeout per request
+                axios.post(`${API_BASE}/surveyor-payroll`, {
+                    surveyor_name: s.name,
+                    surveys: s.surveys || [] // Pass the raw events collected during upload
+                }, {
+                    timeout: 20000 // 20s timeout per surveyor
                 })
                 .then(res => {
                     setBulkProgress(prev => ({ ...prev, current: prev.current + 1 }));
                     return res.data;
                 })
                 .catch(err => {
-                    console.error(`Error fetching for ${s.name}:`, err);
-                    // Still increment progress to prevent hanging
+                    console.error(`Error for ${s.name}:`, err);
                     setBulkProgress(prev => ({ ...prev, current: prev.current + 1 }));
                     return null; 
                 })
