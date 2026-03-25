@@ -202,11 +202,24 @@ const Home = ({
             });
 
             const results = await Promise.all(promises);
-            const validSlips = results.filter(r => r !== null);
-            setAllSlips(validSlips);
+            // Don't filter out failed ones, show them as errors so we know they were identified
+            const processedResults = results.map((r, idx) => {
+                if (r) return r;
+                return { 
+                    surveyor_name: targetList[idx].name, 
+                    error: "Could not fetch data for this person.",
+                    isError: true,
+                    particulars: [], earnings: [], deductions: [], total_earnings: 0, total_deductions: 0, net_salary: 0
+                };
+            });
             
-            if (validSlips.length === 0) {
-                alert("Could not generate any slips. Please check if the name extraction is correct or if the names exist in the database.");
+            setAllSlips(processedResults);
+            
+            const successCount = processedResults.filter(r => !r.isError).length;
+            if (successCount === 0 && processedResults.length > 0) {
+                alert("Identified surveyors, but failed to generate any calculations. Please check backend logs.");
+            } else if (processedResults.length === 0) {
+                alert("No valid surveyors found in the file.");
             }
         } catch (err) {
             console.error("Bulk generation critical error:", err);

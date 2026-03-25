@@ -523,15 +523,15 @@ class SurveyorSyncRequest(BaseModel):
 @app.post("/surveyor-payroll")
 def post_surveyor_payroll(req: SurveyorSyncRequest, db: Session = Depends(get_db)):
     """Generate salary slip data using data provided by the frontend."""
-    logger.info(f"Syncing payroll for: {req.surveyor_name} with {len(req.surveys)} events")
+    logger.info(f"--- SYNC START: {req.surveyor_name} ({len(req.surveys)} events) ---")
     surveys_for_payroll = []
     
-    for item in req.surveys:
+    for idx, item in enumerate(req.surveys):
         try:
-            # Normalize UID: remove .0 suffix if present from Excel
+            # Normalize UID
             uid = str(item.uid).split('.')[0]
             
-            # Robust lookup: Check for variations like "123" or "123.0" inside the JSON
+            # Robust lookup
             db_survey = db.query(Survey).filter(
                 (Survey.full_result_json.like(f'%"uid": "{uid}"%')) |
                 (Survey.full_result_json.like(f'%"uid": "{uid}.0"%'))
@@ -541,8 +541,11 @@ def post_surveyor_payroll(req: SurveyorSyncRequest, db: Session = Depends(get_db
             if db_survey:
                 try:
                     audit_data = json.loads(db_survey.full_result_json)
-                except:
-                    logger.warning(f"Failed to parse JSON for survey ID {db_survey.id}")
+                    logger.debug(f"Row {idx}: Matched UID {uid} to Audit ID {db_survey.id}")
+                except Exception as je:
+                    logger.warning(f"Row {idx}: JSON parse fail for {uid}: {je}")
+            else:
+                logger.debug(f"Row {idx}: No Audit found for UID {uid}")
             
             surveys_for_payroll.append({
                 "uid": uid,
@@ -550,18 +553,26 @@ def post_surveyor_payroll(req: SurveyorSyncRequest, db: Session = Depends(get_db
                 "raw": item.raw
             })
         except Exception as e:
-            logger.error(f"Error processing survey item: {e}")
+            logger.error(f"Row {idx} critical fail: {e}")
             continue
             
-    if not surveys_for_payroll:
-        logger.warning(f"No valid surveys processed for {req.surveyor_name}")
-        
     try:
         payroll = calculate_surveyor_payroll(req.surveyor_name, surveys_for_payroll)
+        logger.info(f"--- SYNC SUCCESS: {req.surveyor_name} (Net: {payroll.get('net_salary')}) ---")
         return payroll
     except Exception as e:
-        logger.error(f"Payroll calculation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Payroll calculation CRASHED for {req.surveyor_name}: {e}")
+        # Return a skeleton object instead of failing, so the UI still shows the name
+        return {
+            "surveyor_name": req.surveyor_name,
+            "error": str(e),
+            "particulars": [],
+            "earnings": [],
+            "deductions": [],
+            "total_earnings": 0,
+            "total_deductions": 0,
+            "net_salary": 0
+        }
 
 @app.get("/surveyor-payroll/{surveyor_name}")
 def get_surveyor_payroll_legacy(surveyor_name: str, db: Session = Depends(get_db)):
