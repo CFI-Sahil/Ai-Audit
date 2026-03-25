@@ -148,7 +148,10 @@ const SurveyForm = ({
   const validateName = (name) => name.trim().length >= 2;
   const validateAge = (age) => {
     const val = String(age || "").trim();
-    return val.length >= 2 && val.length <= 10;
+    if (!val) return false;
+    const isNumeric = /^\d+$/.test(val);
+    if (isNumeric) return val.length === 2;
+    return val.length > 0;
   };
   const validateProfession = (prof) => prof.trim().length >= 4;
   const validateEducation = (edu) => edu.trim().length >= 2;
@@ -322,7 +325,7 @@ const SurveyForm = ({
                 />
                 {formData.age && !validateAge(formData.age) && (
                   <p className="text-[10px] text-red-500 font-bold mt-1 uppercase tracking-widest pl-1">
-                    Age must be at least 2 characters
+                    2 digits if numeric, or any other characters
                   </p>
                 )}
               </div>
