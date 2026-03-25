@@ -365,9 +365,9 @@ const Home = ({
                                 {showHistory ? "Back to Live List" : "View History"}
                              </button>
                              {!selectedSurveyor && !isBulkView && (
-                                <div className="flex items-center bg-gray-100 rounded-xl p-1 px-3 border border-gray-200">
+                                <div className="flex items-center bg-gray-100 rounded-xl p-1 px-3 border border-gray-200 cursor-pointer">
                                     <input type="file" id="xl-up" ref={payrollInputRef} className="hidden" accept=".xlsx" onChange={handlePayrollExcelUpload} />
-                                    <label htmlFor="xl-up" className="text-[9px] font-black uppercase tracking-widest cursor-pointer px-4">Upload Multi-Survey File</label>
+                                    <label htmlFor="xl-up" className="text-[9px] font-black uppercase tracking-widest px-4">Upload Multi-Survey File</label>
                                     {payrollExcelRows && <button onClick={() => handleGenerateAllSlips()} className="bg-black text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] cursor-pointer">Generate Group</button>}
                                 </div>
                              )}
