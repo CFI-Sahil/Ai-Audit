@@ -398,7 +398,7 @@ const Home = ({
                             <div className="flex justify-between items-center mb-8">
                                 <button
                                     onClick={() => setIsBulkView(false)}
-                                    className="text-[10px] font-black uppercase tracking-widest text-black hover:text-gray-400 flex items-center gap-3 transition-all group"
+                                    className="text-[10px] font-black uppercase tracking-widest text-black hover:text-gray-400 flex items-center gap-3 transition-all group cursor-pointer"
                                 >
                                     <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-black group-hover:text-white transition-colors">
                                         <ChevronRight className="w-4 h-4 rotate-180" />
@@ -431,7 +431,7 @@ const Home = ({
                         >
                             <button
                                 onClick={() => setSelectedSurveyor(null)}
-                                className="mb-10 text-[10px] font-black uppercase tracking-widest text-black hover:text-gray-400 flex items-center gap-3 transition-all group"
+                                className="mb-10 text-[10px] font-black uppercase tracking-widest text-black hover:text-gray-400 flex items-center gap-3 transition-all group cursor-pointer"
                             >
                                 <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-black group-hover:text-white transition-colors">
                                     <ChevronRight className="w-4 h-4 rotate-180" />
