@@ -353,7 +353,7 @@ const Home = ({
                                     onClick={() => {
                                         setPayrollExcelRows(null);
                                     }}
-                                    className="p-4 bg-gray-100 rounded-2xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                                    className="p-4 bg-gray-100 rounded-2xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
