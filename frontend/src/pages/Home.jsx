@@ -249,7 +249,7 @@ const Home = ({
                         <FileText className="w-4 h-4" /> Security Audit
                     </button>
                     <button 
-                        onClick={fetchSurveyors}
+                        onClick={() => setActiveTab('payroll')}
                         className={`flex items-center gap-2 cursor-pointer px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'payroll' ? 'bg-black text-white shadow-xl scale-[1.02]' : 'text-gray-500 hover:text-black hover:bg-white/50'}`}
                     >
                         <Users className="w-4 h-4" /> Surveyor Payroll
@@ -332,7 +332,7 @@ const Home = ({
 
                             <button
                                 onClick={handleGenerateAllSlips}
-                                disabled={loading || isBulkView || (!payrollExcelRows && !surveyors.length)}
+                                disabled={loading || isBulkView || !payrollExcelRows}
                                 className="bg-black text-white py-4 px-8 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-3 cursor-pointer"
                             >
                                 {isBulkView && allSlips.length < bulkProgress.total ? (
@@ -348,11 +348,10 @@ const Home = ({
                                 )}
                             </button>
 
-                            {(payrollExcelRows || surveyors.length > 0) && (
+                            {payrollExcelRows && (
                                 <button
                                     onClick={() => {
                                         setPayrollExcelRows(null);
-                                        fetchSurveyors();
                                     }}
                                     className="p-4 bg-gray-100 rounded-2xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
                                 >
@@ -364,7 +363,7 @@ const Home = ({
 
                     {!selectedSurveyor && !isBulkView ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {(payrollExcelRows || surveyors).map((s, idx) => (
+                            {(payrollExcelRows || []).map((s, idx) => (
                                 <motion.div
                                     key={idx}
                                     whileHover={{ y: -8, scale: 1.02 }}
