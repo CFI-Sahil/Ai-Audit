@@ -11,7 +11,7 @@ import SalarySlip from '../components/SalarySlip';
 import { Users, FileText, ChevronRight, FileSpreadsheet, FileUp, Loader2, CheckCircle2, X } from 'lucide-react';
 import { useRef } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8005';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const Home = ({
     loading,
