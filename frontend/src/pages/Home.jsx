@@ -74,34 +74,48 @@ const Home = ({
                     return;
                 }
 
-                rows.slice(1).forEach((row, rowIndex) => {
+                rows.slice(1).forEach((row) => {
                     const uid = String(row[0] || "").trim();
                     let name = "";
                     
-                    try {
-                        let jsonStr = String(row[2] || "{}").trim();
-                        // Fix common Excel/JSON formatting issues
-                        if (jsonStr.startsWith("{")) {
-                            const rowData = JSON.parse(jsonStr);
-                            // Support various key cases
-                            name = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor || "";
-                        }
-                    } catch (e) {}
+                    const colB = String(row[1] || "").trim();
+                    const colC = String(row[2] || "").trim();
 
-                    // Fallback to Column B
+                    // Try to find JSON block in Column C first
+                    if (colC.includes("{") && colC.includes("}")) {
+                        try {
+                            const jsonMatch = colC.match(/\{.*\}/);
+                            if (jsonMatch) {
+                                const rowData = JSON.parse(jsonMatch[0]);
+                                name = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor || "";
+                            }
+                        } catch (e) {}
+                    }
+
+                    // Fallback to Column B if Column C didn't yield a name
                     if (!name || name === "Not Provided" || name === "undefined") {
-                        const possibleName = String(row[1] || "").trim();
-                        if (possibleName && !possibleName.match(/^\d+$/)) {
-                            name = possibleName;
+                        if (colB && !colB.match(/^\d+$/)) {
+                            name = colB;
                         }
                     }
 
-                    // Clean up names like "(UID - (NAME))"
+                    // Final cleanup: remove UID prefixes, parentheses, and quotes
                     if (name) {
-                        name = name.split(' - ').pop().replace(/^\(|\)$/g, '').replace(/^\(|\)$/g, '').trim();
+                        if (name.includes('{"') || name.includes('":')) {
+                            name = ""; // Still looks like JSON, discard
+                        } else {
+                            if (name.includes(" - ")) {
+                                name = name.split(" - ").pop();
+                            }
+                            name = name.replace(/[()"]/g, "").trim();
+                            // If it contains dates or multiple commas, it's likely bad data
+                            if (name.includes(",") || name.includes(":") || name.length < 3) {
+                                name = "";
+                            }
+                        }
                     }
 
-                    if (name && name !== "Not Provided" && name !== "undefined" && name.length > 1) {
+                    if (name && name.length > 2) {
                         if (!surveyorMap[name]) {
                             surveyorMap[name] = { name, uid, count: 0 };
                         }
@@ -133,23 +147,32 @@ const Home = ({
         setBulkProgress({ current: 0, total: targetList.length });
 
         try {
-            // Process in parallel for speed
-            const promises = targetList.map(s => 
-                axios.get(`${API_BASE}/surveyor-payroll/${encodeURIComponent(s.name)}`)
-                    .then(res => {
-                        setBulkProgress(prev => ({ ...prev, current: prev.current + 1 }));
-                        return res.data;
-                    })
-                    .catch(err => {
-                        console.error(`Error fetching for ${s.name}:`, err);
-                        return null; 
-                    })
+            // Process in parallel for speed, but with individual oversight
+            const promises = targetList.map((s, idx) => 
+                axios.get(`${API_BASE}/surveyor-payroll/${encodeURIComponent(s.name)}`, {
+                    timeout: 15000 // 15s timeout per request
+                })
+                .then(res => {
+                    setBulkProgress(prev => ({ ...prev, current: prev.current + 1 }));
+                    return res.data;
+                })
+                .catch(err => {
+                    console.error(`Error fetching for ${s.name}:`, err);
+                    // Still increment progress to prevent hanging
+                    setBulkProgress(prev => ({ ...prev, current: prev.current + 1 }));
+                    return null; 
+                })
             );
 
             const results = await Promise.all(promises);
-            setAllSlips(results.filter(r => r !== null));
+            const validSlips = results.filter(r => r !== null);
+            setAllSlips(validSlips);
+            
+            if (validSlips.length === 0) {
+                alert("Could not generate any slips. Please check if the name extraction is correct or if the names exist in the database.");
+            }
         } catch (err) {
-            console.error("Bulk generation failed:", err);
+            console.error("Bulk generation critical error:", err);
         }
     };
 
