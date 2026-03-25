@@ -46,7 +46,7 @@ function App() {
       </main>
 
       <footer className="w-[80vw] max-w-[1600px] mx-auto px-6 pt-12 border-t border-border-muted flex justify-between items-center text-xs font-semibold text-text-light pb-8">
-        <div>© 2024 AI Survey Audit System. All rights reserved.</div>
+        <div>© 2026 AI Survey Audit System.DEVELOPED AT ZEEX AI.</div>
         <div className="flex gap-8">
           <span className="cursor-pointer hover:text-text-dark transition-colors">
             Privacy Policy
