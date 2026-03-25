@@ -98,18 +98,25 @@ const Home = ({
         setAllSlips([]);
         setBulkProgress({ current: 0, total: targetList.length });
 
-        const results = [];
-        for (let i = 0; i < targetList.length; i++) {
-            const s = targetList[i];
-            setBulkProgress(prev => ({ ...prev, current: i + 1 }));
-            try {
-                const res = await axios.get(`${API_BASE}/surveyor-payroll/${encodeURIComponent(s.name)}`);
-                results.push(res.data);
-            } catch (err) {
-                console.error(`Error for ${s.name}`, err);
-            }
+        try {
+            // Process in parallel for speed
+            const promises = targetList.map(s => 
+                axios.get(`${API_BASE}/surveyor-payroll/${encodeURIComponent(s.name)}`)
+                    .then(res => {
+                        setBulkProgress(prev => ({ ...prev, current: prev.current + 1 }));
+                        return res.data;
+                    })
+                    .catch(err => {
+                        console.error(`Error fetching for ${s.name}:`, err);
+                        return null; 
+                    })
+            );
+
+            const results = await Promise.all(promises);
+            setAllSlips(results.filter(r => r !== null));
+        } catch (err) {
+            console.error("Bulk generation failed:", err);
         }
-        setAllSlips(results);
     };
 
     const fetchSurveyors = async () => {
