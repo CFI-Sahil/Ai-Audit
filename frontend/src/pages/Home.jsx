@@ -9,6 +9,7 @@ import AuditResult from '../components/AuditResult';
 import FeatureHighlights from '../components/FeatureHighlights';
 import SalarySlip from '../components/SalarySlip';
 import { Users, FileText, ChevronRight, FileSpreadsheet, FileUp, Loader2, CheckCircle2, X } from 'lucide-react';
+import { useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8005';
 
@@ -33,6 +34,7 @@ const Home = ({
     const [isBulkView, setIsBulkView] = useState(false);
     const [allSlips, setAllSlips] = useState([]);
     const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+    const payrollInputRef = useRef(null);
 
     // Load SheetJS dynamically via CDN
     React.useEffect(() => {
@@ -67,16 +69,33 @@ const Home = ({
                 
                 // Group by surveyor name
                 const surveyorMap = {};
-                rows.slice(1).forEach(row => {
+                if (!rows || rows.length <= 1) {
+                    alert("Excel file seems empty or missing data rows.");
+                    return;
+                }
+
+                rows.slice(1).forEach((row, rowIndex) => {
                     const uid = String(row[0] || "").trim();
                     let name = "";
+                    
+                    // Attempt name extraction from JSON (Column C) or fallback to Name column (if exists at Column B)
                     try {
                         const jsonStr = String(row[2] || "{}");
-                        const rowData = JSON.parse(jsonStr);
-                        name = rowData.surveyor;
+                        if (jsonStr.startsWith("{")) {
+                            const rowData = JSON.parse(jsonStr);
+                            name = rowData.surveyor;
+                        }
                     } catch (e) {}
 
-                    if (name && name !== "Not Provided") {
+                    // Fallback to Column B if Column C doesn't have surveyor JSON
+                    if (!name || name === "Not Provided") {
+                        const possibleName = String(row[1] || "").trim();
+                        if (possibleName && !possibleName.match(/^\d+$/)) {
+                            name = possibleName;
+                        }
+                    }
+
+                    if (name && name !== "Not Provided" && name !== "undefined") {
                         if (!surveyorMap[name]) {
                             surveyorMap[name] = { name, uid, count: 0 };
                         }
@@ -84,7 +103,12 @@ const Home = ({
                     }
                 });
 
-                setPayrollExcelRows(Object.values(surveyorMap));
+                const finalData = Object.values(surveyorMap);
+                console.log("Extracted Excel Data:", finalData);
+                if (finalData.length === 0) {
+                    alert("No valid surveyor data found in this file format.");
+                }
+                setPayrollExcelRows(finalData);
             } catch (err) {
                 console.error("Excel Parsing Error:", err);
             } finally {
@@ -303,6 +327,7 @@ const Home = ({
                                 <input
                                     type="file"
                                     id="payroll-excel-upload"
+                                    ref={payrollInputRef}
                                     className="hidden"
                                     accept=".xlsx, .xls"
                                     onChange={handlePayrollExcelUpload}
@@ -352,6 +377,9 @@ const Home = ({
                                 <button
                                     onClick={() => {
                                         setPayrollExcelRows(null);
+                                        if (payrollInputRef.current) {
+                                            payrollInputRef.current.value = "";
+                                        }
                                     }}
                                     className="p-4 bg-gray-100 rounded-2xl text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all cursor-pointer"
                                 >
