@@ -17,3 +17,6 @@ dist/
 *.log
 backend/.whisper_models/
 saved_audio/
+data_with_json.xlsx
+extracted_content.md
+tmp_request.json
