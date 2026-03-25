@@ -321,11 +321,20 @@ const Home = ({
 
                             <button
                                 onClick={handleGenerateAllSlips}
-                                disabled={loading || (!payrollExcelRows && !surveyors.length)}
-                                className="bg-black text-white py-4 px-8 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-3"
+                                disabled={loading || isBulkView || (!payrollExcelRows && !surveyors.length)}
+                                className="bg-black text-white py-4 px-8 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-3 cursor-pointer"
                             >
-                                <Users className="w-4 h-4" />
-                                Generate Salary Slips
+                                {isBulkView && allSlips.length < bulkProgress.total ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin text-[#4ADE80]" />
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Users className="w-4 h-4" />
+                                        Generate Salary Slips
+                                    </>
+                                )}
                             </button>
 
                             {(payrollExcelRows || surveyors.length > 0) && (
