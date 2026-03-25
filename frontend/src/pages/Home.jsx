@@ -86,15 +86,25 @@ const Home = ({
                         const cell = String(row[i] || "").trim();
                         if (!cell) continue;
 
-                        // 1. JSON Priority
+                        // 1. JSON & Regex Priority
                         if (cell.includes("{") && cell.includes("}")) {
+                            // High-Reliability Regex fallback (in case JSON.parse fails)
+                            const nameRegexMatch = cell.match(/"surveyor":\s*"([^"]+)"/i);
+                            if (nameRegexMatch && !name) {
+                                name = nameRegexMatch[1];
+                                console.log(`Row ${rowIndex + 1}: Name found via Regex in JSON column.`);
+                            }
+                            
                             try {
                                 const jsonMatch = cell.match(/\{.*\}/);
                                 if (jsonMatch) {
                                     const rowData = JSON.parse(jsonMatch[0]);
                                     const extName = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor;
                                     const extUid = rowData.UID || rowData.uid || rowData.Uid || rowData.id1;
-                                    if (extName && !name) name = extName;
+                                    if (extName && !name) {
+                                        name = extName;
+                                        console.log(`Row ${rowIndex + 1}: Name found via JSON.parse.`);
+                                    }
                                     if (extUid && !uid) uid = String(extUid).split('.')[0];
                                 }
                             } catch (e) {}
