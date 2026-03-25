@@ -74,79 +74,64 @@ const Home = ({
                     return;
                 }
 
-                console.log("RAW ROWS DEBUG (First 5):", rows.slice(0, 5));
-                console.log(`Starting deep scan of ${rows.length} rows...`);
-                
-                rows.forEach((row, rowIndex) => {
-                    let bestName = "";
-                    let bestUid = "";
-                    let nameConfidence = 0; // 0: none, 1: text, 2: multi-word, 3: JSON-verified
+                console.log("SURVEYOR SYNC DEBUG: First 10 Rows Data:");
+                rows.slice(0, 10).forEach((r, i) => console.log(`Row ${i + 1}:`, r));
 
-                    // Deep Scanner (15 Columns)
+                rows.forEach((row, rowIndex) => {
+                    let name = "";
+                    let uid = "";
+
+                    // Absolute Cell Scanner (15 Columns)
                     for (let i = 0; i < Math.min(row.length, 15); i++) {
                         const cell = String(row[i] || "").trim();
                         if (!cell) continue;
 
-                        // Check for JSON first (Highest Confidence)
+                        // 1. JSON Priority
                         if (cell.includes("{") && cell.includes("}")) {
                             try {
                                 const jsonMatch = cell.match(/\{.*\}/);
                                 if (jsonMatch) {
                                     const rowData = JSON.parse(jsonMatch[0]);
-                                    const rawName = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor;
-                                    const rawUid = rowData.UID || rowData.uid || rowData.Uid || rowData.id1;
-                                    
-                                    if (rawName) {
-                                        let clean = rawName;
-                                        if (clean.includes(" - ")) clean = clean.split(" - ").pop();
-                                        clean = clean.replace(/[()"]/g, "").trim();
-                                        if (clean.length >= 2) {
-                                            bestName = clean;
-                                            nameConfidence = 3;
-                                        }
-                                    }
-                                    if (rawUid && !bestUid) bestUid = String(rawUid).split('.')[0];
+                                    const extName = rowData.SURVEYOR || rowData.surveyor || rowData.Surveyor;
+                                    const extUid = rowData.UID || rowData.uid || rowData.Uid || rowData.id1;
+                                    if (extName && !name) name = extName;
+                                    if (extUid && !uid) uid = String(extUid).split('.')[0];
                                 }
                             } catch (e) {}
                         }
-
-                        // ID Check (Any numeric cell 3-10 digits)
-                        if (!bestUid && cell.match(/^\d{3,10}$/)) {
-                            bestUid = cell.split('.')[0];
+                        // 2. UID Fallback
+                        if (!uid && cell.match(/^\d{3,12}$/)) {
+                            uid = cell.split('.')[0];
                         }
-
-                        // Text Check (Only if confidence is low)
-                        if (nameConfidence < 3 && cell.length >= 3 && !cell.match(/^\d+$/)) {
+                        // 3. Name Fallback (Non-numeric, not "Village/Date/etc")
+                        if (!name && cell.length >= 3 && !cell.match(/^\d+$/)) {
                             const low = cell.toLowerCase();
                             const isNoise = ["name", "surveyor", "id", "audit", "surveory", "survey", "not provided", "undefined"].includes(low);
-                            const isLocation = ["village", "mumbai", "pune", "nagpur", "wardha", "dist", "taluka"].some(loc => low.includes(loc));
-                            
-                            if (!isNoise && !isLocation && !cell.includes("{")) {
-                                let currentConf = cell.includes(" ") ? 2 : 1;
-                                if (currentConf > nameConfidence) {
-                                    bestName = cell.replace(/[()"]/g, "").trim();
-                                    nameConfidence = currentConf;
-                                }
+                            if (!isNoise && !cell.includes("{") && !cell.includes("[")) {
+                                name = cell;
                             }
                         }
                     }
 
-                    // SAFETY NET: If no name found but ID exists, use ID as name
-                    if (!bestName && bestUid) {
-                        bestName = `Surveyor #${bestUid}`;
-                        nameConfidence = 1;
+                    // Cleaning
+                    if (name) {
+                        if (name.includes(" - ")) name = name.split(" - ").pop();
+                        name = name.replace(/[()"]/g, "").trim();
                     }
+                    if (!name && uid) name = `Surveyor #${uid}`;
 
-                    if (bestName && nameConfidence > 0) {
-                        const isNew = !surveyorMap[bestName];
-                        console.log(`Row ${rowIndex + 1}: ${isNew ? 'Identified' : 'Merging into'} [${bestName}] (Confidence: ${nameConfidence})`);
-                        
-                        if (isNew) {
-                            surveyorMap[bestName] = { name: bestName, uid: bestUid || "Unknown", count: 0, surveys: [] };
+                    if (name) {
+                        // Use Name + UID as a composite key to prevent merging different people with same name
+                        const key = `${name}_${uid || 'no-id'}`;
+                        if (!surveyorMap[key]) {
+                            console.log(`Row ${rowIndex + 1}: Found New Record [${name}] (ID: ${uid})`);
+                            surveyorMap[key] = { name, uid: uid || "Unknown", count: 0, surveys: [] };
+                        } else {
+                            console.log(`Row ${rowIndex + 1}: Adding Survey to [${name}]`);
                         }
-                        surveyorMap[bestName].count++;
                         
-                        // Find the raw JSON for performance data
+                        surveyorMap[key].count++;
+                        
                         let rawObj = {};
                         for (let i = 0; i < Math.min(row.length, 15); i++) {
                             const cell = String(row[i] || "");
@@ -157,7 +142,7 @@ const Home = ({
                                 } catch (e) {}
                             }
                         }
-                        surveyorMap[bestName].surveys.push({ uid: bestUid || "Unknown", raw: rawObj });
+                        surveyorMap[key].surveys.push({ uid: uid || "Unknown", raw: rawObj });
                     }
                 });
 
