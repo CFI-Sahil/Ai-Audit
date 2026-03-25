@@ -175,23 +175,26 @@ const Home = ({
 
         try {
             // Process in parallel with new POST sync endpoint
-            const promises = targetList.map((s, idx) => 
-                axios.post(`${API_BASE}/surveyor-payroll`, {
+            const promises = targetList.map((s, idx) => {
+                const payload = {
                     surveyor_name: s.name,
-                    surveys: s.surveys || [] // Pass the raw events collected during upload
-                }, {
-                    timeout: 20000 // 20s timeout per surveyor
+                    surveys: s.surveys || []
+                };
+                console.log(`Generating payroll for ${s.name}:`, payload);
+                
+                return axios.post(`${API_BASE}/surveyor-payroll`, payload, {
+                    timeout: 20000 
                 })
                 .then(res => {
                     setBulkProgress(prev => ({ ...prev, current: prev.current + 1 }));
                     return res.data;
                 })
                 .catch(err => {
-                    console.error(`Error for ${s.name}:`, err);
+                    console.error(`Error for ${s.name}:`, err.response?.data || err.message);
                     setBulkProgress(prev => ({ ...prev, current: prev.current + 1 }));
                     return null; 
-                })
-            );
+                });
+            });
 
             const results = await Promise.all(promises);
             const validSlips = results.filter(r => r !== null);
