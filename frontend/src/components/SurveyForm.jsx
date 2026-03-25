@@ -100,34 +100,72 @@ const SurveyForm = ({
         if (match) {
           try {
             // Find JSON column (typically index 2 based on backend logic)
-            const jsonStr = String(row[2] || "{}");
-            const data = JSON.parse(jsonStr);
-            const regDetails = data.registration_details || [];
-            
+            // But we'll scan up to 15 columns just to be safe
+            let data = {};
+            for (let c = 0; c < Math.min(row.length, 15); c++) {
+              const cell = String(row[c] || "");
+              if (cell.includes("{") && cell.includes("}")) {
+                try {
+                  const jsonMatch = cell.match(/\{.*\}/);
+                  if (jsonMatch) {
+                    data = JSON.parse(jsonMatch[0]);
+                    break;
+                  }
+                } catch (e) {}
+              }
+            }
+
             const newForm = { ...formData };
+            
+            // 1. Try registration_details (Legacy Format)
+            const regDetails = data.registration_details || [];
             regDetails.forEach(entry => {
               const val = String(entry[entry.length > 2 ? 1 : 0] || "").trim();
               const label = String(entry[entry.length > 2 ? 2 : 1] || "").trim().toUpperCase();
-
-              if (["FR NAME", "NAME", "NAME OF THE RESPONDENT", "FULL NAME", "RESPONDENT NAME"].includes(label)) {
-                newForm.name = val;
-              } else if (["MOBILE NUMBER", "MOBILE", "PHONE"].includes(label)) {
-                newForm.mobile = val;
-              } else if (["AREA", "LOCATION", "VILLAGE", "DISTRICT"].includes(label)) {
-                newForm.location = val;
-              } else if (["OCCUPATION", "PROFESSION", "WORK"].includes(label)) {
-                newForm.profession = val;
-              } else if (["DOB", "DATE OF BIRTH"].includes(label)) {
-                try {
-                  const yearMatch = val.match(/\d{4}/);
-                  if (yearMatch) newForm.age = String(2026 - parseInt(yearMatch[0]));
-                } catch (e) {}
+              if (["FR NAME", "NAME", "NAME OF THE RESPONDENT", "FULL NAME", "RESPONDENT NAME"].includes(label)) newForm.name = val;
+              else if (["MOBILE NUMBER", "MOBILE", "PHONE"].includes(label)) newForm.mobile = val;
+              else if (["AREA", "LOCATION", "VILLAGE", "DISTRICT"].includes(label)) newForm.location = val;
+              else if (["OCCUPATION", "PROFESSION", "WORK"].includes(label)) newForm.profession = val;
+              else if (["DOB", "DATE OF BIRTH"].includes(label)) {
+                  const ym = val.match(/\d{4}/);
+                  if (ym) newForm.age = String(2026 - parseInt(ym[0]));
               }
             });
-            
-            if (!newForm.name || newForm.name.toLowerCase().includes("surveyor")) {
-              newForm.name = "Not Provided";
+
+            // 2. Try Flat JSON Keys (New Format)
+            Object.entries(data).forEach(([key, val]) => {
+              const k = key.toLowerCase();
+              const v = String(val || "").trim();
+              if (!v || v === "null") return;
+
+              if ((k.includes("name") || k.includes("participant") || k.includes("respondent")) && !k.includes("surveyor") && !newForm.name) newForm.name = v;
+              else if ((k === "village" || k === "location" || k === "area") && !newForm.location) newForm.location = v;
+              else if ((k === "age" || k === "user_age") && !newForm.age) newForm.age = v;
+              else if ((k === "mobile" || k === "phone") && !newForm.mobile) newForm.mobile = v;
+            });
+
+            // 3. Last Resort: Row Column Fallback
+            if (!newForm.location) {
+                // Look for location-looking strings in the row
+                for (let c = 0; c < Math.min(row.length, 15); c++) {
+                    const cval = String(row[c] || "").trim();
+                    if (cval.length > 3 && !cval.includes("{") && isNaN(cval)) {
+                        const low = cval.toLowerCase();
+                        if (["pune", "mumbai", "nagpur", "wardha", "dist", "village"].some(l => low.includes(l))) {
+                            newForm.location = cval;
+                            break;
+                        }
+                    }
+                }
             }
+
+            // Clean name
+            if (newForm.name && (newForm.name.toLowerCase().includes("surveyor") || newForm.name.includes("-"))) {
+                if (newForm.name.includes("-")) newForm.name = newForm.name.split("-").pop().replace(/[()]/g, "").trim();
+                else if (newForm.name.toLowerCase().includes("surveyor")) newForm.name = ""; // Discard if clearly a surveyor name
+            }
+
+            if (!newForm.name) newForm.name = "Not Provided";
             
             setFormData(newForm);
             showToast(`Form auto-filled for UID: ${searchUid}`);
